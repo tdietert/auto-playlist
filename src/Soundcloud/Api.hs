@@ -23,6 +23,8 @@ type SoundcloudAPI = QueryParam "client_id" T.Text :> SoundcloudTrackAPI
 type SoundcloudTrackAPI = "tracks" :>    
   (    QueryParams "genres" T.Text :> Get '[JSON] [ST.Track] 
   :<|> Capture "id" Int :> Get '[JSON] ST.Track
+  :<|> Capture "id" Int :> ReqBody '[JSON] ST.Track :> Put '[JSON] ()
+  :<|> Capture "id" Int :> ReqBody '[JSON] ST.Track :> Delete '[JSON] () 
   )
 
 data SoundcloudClient = SoundcloudClient 
@@ -32,6 +34,8 @@ data SoundcloudClient = SoundcloudClient
 data TrackClient = TrackClient 
   { searchTracksByGenre :: [T.Text] -> Manager -> BaseUrl -> ClientM [ST.Track]
   , getTrack            :: Int -> Manager -> BaseUrl -> ClientM ST.Track
+  , putTrack            :: Int -> ST.Track -> Manager -> BaseUrl -> ClientM ()
+  , deleteTrack         :: Int -> ST.Track -> Manager -> BaseUrl -> ClientM ()
   } 
  
 soundcloudAPI :: Proxy SoundcloudTrackAPI
@@ -45,4 +49,4 @@ makeAPIClient = SoundcloudClient{..}
     mkTrackAPI :: Maybe T.Text -> TrackClient
     mkTrackAPI clientId = TrackClient{..}
       where 
-        searchTracksByGenre :<|> getTrack = trackAPI clientId
+        searchTracksByGenre :<|> getTrack :<|> putTrack :<|> deleteTrack = trackAPI clientId
