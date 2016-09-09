@@ -18,10 +18,15 @@ main = do
       manager <- newManager tlsManagerSettings
       let clientId = ClientId clientId'
           clientSecret = ClientSecret clientSecret'
-          authHeader = Just $ mkAuthHeaderFromCreds (Credentials clientId clientSecret)
+          authHeader = mkAuthHeaderFromCredsClient (Credentials clientId clientSecret)
+          (SpotifyAuthClient authorizeClient) = makeSpotifyAuthAPIClient
           (SpotifyClient searchClient) = makeSpotifyAPIClient 
-      res <- runExceptT $ (searchTracks $ searchClient authHeader) (Just "rihanna") (Just "US") Nothing Nothing manager spotifyBaseUrl 
-      case res of 
-        Left err -> putStrLn $ "Error: " ++ show err
-        Right tracks -> print tracks
+      eAuthTokResp <- runExceptT $ authorizeClient (Just authHeader) [("grant_type","client_credentials")] manager authBaseUrl
+      case eAuthTokResp of 
+        Left err -> putStrLn $ "Could not authenticate client: " ++ show err
+        Right authTokResp -> do
+          res <- runExceptT $ (searchTracks $ searchClient $ Just $ toHeaderVal authTokResp) (Just "rihanna") (Just "US") Nothing Nothing manager spotifyBaseUrl 
+          case res of 
+            Left err -> putStrLn $ "Error: " ++ show err
+            Right tracks -> print tracks
     _ -> putStrLn "Error: Please enter two args, <clientId> <clientSecret>."
