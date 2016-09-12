@@ -18,16 +18,21 @@ library
   exposed-modules:     Soundcloud.Api
                        Soundcloud.Data.Track
                        Spotify.Api
+                       Spotify.Api.Auth
                        Spotify.Data.Track
   build-depends:       base >= 4.7 && < 5
                      , aeson 
                      , http-client
+                     , http-types
+                     , http-media
+                     , mtl
                      , text
                      , transformers
-                     , servant
-                     , servant-client
+                     , servant 
+                     , servant-client 
                      , servant-server
                      , base64-bytestring
+                     , bytestring
                      , time
   default-language:    Haskell2010
 
@@ -41,6 +46,7 @@ executable auto-playlist-exe
                      , http-client-tls
                      , transformers 
                      , text
+                     , bytestring
   default-language:    Haskell2010
 
 executable auto-playlist-server
