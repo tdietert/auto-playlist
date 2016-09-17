@@ -19,12 +19,17 @@ import           Network.HTTP.Client    hiding (Proxy)
 import           Servant.API
 import           Servant.Client         
 
-import qualified Spotify.Data.Track  as ST 
+import qualified Spotify.Types.PagingObject as PO
+import qualified Spotify.Types.Playlist     as PL
+import qualified Spotify.Types.Track        as T 
 
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
 
+-- Note:
+--   data ItemTypes = TrackItems | ArtistItems 
+--   w/ custom to/fromJSON 
 data TrackResponse = TrackResponse
-  { tracks :: ST.PagingObject } deriving (Generic,Show)
+  { tracks :: PO.PagingObject T.Track } deriving (Generic,Show)
 
 instance FromJSON TrackResponse
 instance ToJSON TrackResponse

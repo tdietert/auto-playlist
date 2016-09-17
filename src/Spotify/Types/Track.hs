@@ -1,31 +1,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
-module Spotify.Data.Track where
+module Spotify.Types.Track where
 
 import           Data.Aeson               
 import           Data.Aeson.Types         (Options(..), defaultOptions)
-import           Data.Text                (Text)
+import           Data.List                (foldl', intercalate)
+import           Data.Text                (Text, unpack)
 import           Data.Time
 import           GHC.Generics             (Generic)
 
-data PagingObject = PagingObject
-  { po_href :: Text
-  , po_items :: [Track]
-  , po_limit :: Int
-  , po_next     :: Text
-  , po_offset   :: Int
-  , po_previous :: Maybe Text
-  , po_total    :: Int
-  } deriving (Generic, Show)
-
-instance ToJSON PagingObject where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "po_" }
-
-instance FromJSON PagingObject where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 3 } 
-
+-- | Spotify Track Object
 data Track = Track
   { track_album :: Object 
   , track_artists :: [Object]
@@ -45,7 +32,15 @@ data Track = Track
   , track_track_number  :: Int
   , track_type          :: Maybe Text
   , track_uri           :: Maybe Text
-  } deriving (Generic, Show)
+  } deriving (Generic)
+
+instance Show Track where
+  show (Track{..}) = unwords 
+    [ "SpotifyTrack" 
+    , unpack track_id
+    , unpack track_name
+    , unpack track_href
+    ]
 
 instance ToJSON Track where
   toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "track_" }

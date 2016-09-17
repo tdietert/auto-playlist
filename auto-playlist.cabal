@@ -15,11 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Soundcloud.Api
-                       Soundcloud.Data.Track
-                       Spotify.Api
+  exposed-modules:     Spotify.Api
                        Spotify.Api.Auth
-                       Spotify.Data.Track
+                       Spotify.Types.Playlist
+                       Spotify.Types.Track
+                       Spotify.Types.PagingObject
   build-depends:       base >= 4.7 && < 5
                      , aeson 
                      , http-client
