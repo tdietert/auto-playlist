@@ -25,12 +25,8 @@ data PagingObject a = PagingObject
   , po_total    :: Int
   } deriving (Generic, Show)
 
-instance ToJSON (PagingObject T.Track) where
-  toJSON = genericToJSON poToJSONOpts  
+instance ToJSON a => ToJSON (PagingObject a) where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "po_" } 
 
-poToJSONOpts = defaultOptions { fieldLabelModifier = (++) "po_" } 
-
-instance FromJSON (PagingObject T.Track) where
-  parseJSON = genericParseJSON poFromJSONOpts 
-
-poFromJSONOpts = defaultOptions { fieldLabelModifier = drop 3 } 
+instance FromJSON a => FromJSON (PagingObject a) where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 3 } 
