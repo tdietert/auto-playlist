@@ -24,7 +24,7 @@ main = do
       mConf <- readConfig confFp
       case mConf of
         Nothing -> return ()
-        Just (Config _ creds) -> do
+        Just (Config _ _ creds) -> do
           manager <- newManager tlsManagerSettings
           -- First authorize client app
           eAuthTokResp <- runExceptT $ clientAuthClient creds manager clientAuthBaseUrl

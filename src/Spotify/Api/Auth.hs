@@ -34,6 +34,10 @@ newtype RedirectURI = RedirectURI T.Text
 
 newtype UserAuthData = UserAuthData (T.Text, Maybe T.Text)
 
+-- NOTE:
+--   make ADT for 
+-- https://accounts.spotify.com/en/authorize?client_id=ddd07e8d90794e479f14a721c313a032&response_type=code&redirect_uri=http:%2F%2Flocahost:3000&scope=playlist-modify-public
+
 data UserAuthResp = UserAuthResp
   { uaresp_access_token  :: T.Text
   , uaresp_token_type    :: T.Text

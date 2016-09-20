@@ -24,12 +24,14 @@ import           System.Directory      (doesFileExist)
 
 data Config = Config
   { redirectUri  :: RedirectURI 
+  , redirectFile  :: T.Text
   , credentials   :: Credentials 
   } deriving (Generic, Show)
 
 instance FromJSON Config where
   parseJSON (Object v) = Config <$>
     (RedirectURI <$> v .: "redirectUri") <*>
+    v .: "redirectFile" <*>
     v .: "credentials" 
 
 readConfig :: FilePath -> IO (Maybe Config)
