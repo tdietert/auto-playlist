@@ -14,6 +14,7 @@ import           Spotify.Api.Auth
 
 import           System.Environment      (getArgs)
 
+import           AutoPlaylist.Api              (testCreatePlaylist, testUserAuth)
 import           Environment
 
 main :: IO ()
@@ -32,14 +33,17 @@ main = do
             Left err -> putStrLn $ "Could not authenticate client: " ++ show err
             Right authTokResp -> case map T.pack rest of
                 (searchQuery:searchType:_) -> do 
-                  -- Next, run test search
                   let (SpotifyClient searchClient userClient) = makeSpotifyAPIClient 
                       searchReq = (searchTracks $ searchClient $ Just $ 
                         toHeaderVal authTokResp) (Just searchQuery) (Just searchType) Nothing Nothing Nothing manager spotifyBaseUrl 
-                  searchResult <- runExceptT searchReq 
-                  case searchResult of 
-                    Left err -> putStrLn $ show err
-                    Right tracks -> print tracks
+                  -- | test createPlaylist
+                  testUserAuth
+                  testCreatePlaylist "test"
+                  -- | test search
+                  -- searchResult <- runExceptT searchReq 
+                  -- case searchResult of 
+                  --   Left err -> putStrLn $ show err
+                  --   Right tracks -> print tracks
                 otherwise -> putStrLn invalidArgs 
     otherwise -> putStrLn invalidArgs
 

@@ -25,11 +25,11 @@ data UserPublic = UserPublic
   , upub_uri           :: Text
   } deriving (Generic,Show)
 
-instance ToJSON UserPublic where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "upub_" }
-
 instance FromJSON UserPublic where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = (++) "upub_" }
+
+instance ToJSON UserPublic where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 5 }
 
 data UserPrivate = UserPrivate
   { upriv_birthdate      :: Text
@@ -46,9 +46,9 @@ data UserPrivate = UserPrivate
   , upriv_uri           :: Text
   } deriving (Generic,Show)
 
-instance ToJSON UserPrivate where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "upub_" }
-
 instance FromJSON UserPrivate where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = (++) "upriv_" }
+
+instance ToJSON UserPrivate where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 6 }
 

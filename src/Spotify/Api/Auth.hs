@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Spotify.Api.Auth where
 
@@ -40,7 +41,12 @@ newtype RedirectURI = RedirectURI T.Text
 -- https://accounts.spotify.com/en/authorize?client_id=ddd07e8d90794e479f14a721c313a032&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000&scope=playlist-modify-public
 
 newtype UserAccessToken = UserAccessToken T.Text
-  deriving (Show, Generic, ToJSON, FromJSON)
+  deriving (Show, Generic)
+
+instance ToJSON UserAccessToken where
+  toJSON (UserAccessToken uatok) = toJSON uatok
+instance FromJSON UserAccessToken where
+  parseJSON = fmap UserAccessToken . parseJSON 
 
 instance ToHttpApiData UserAccessToken where
   toUrlPiece = coerce
@@ -49,9 +55,9 @@ instance ToHttpApiData UserAccessToken where
 data UserAuthResp = UserAuthResp
   { uaresp_access_token  :: UserAccessToken
   , uaresp_token_type    :: T.Text
-  , uaresp_scope         :: T.Text
   , uaresp_expires_in    :: Int
   , uaresp_refresh_token :: T.Text
+  , uaresp_scope         :: T.Text
   } deriving (Generic,Show)
 
 instance ToJSON UserAuthResp where 
@@ -68,7 +74,7 @@ data UserAuthReq = UserAuthReq
 userAuthClient :: UserAuthReq -> Credentials -> Manager -> BaseUrl -> ClientM UserAuthResp
 userAuthClient (UserAuthReq code (RedirectURI redirUri)) creds manager baseUrl = do
     userAuthResp <- liftIO $ responseBody <$> httpLbs userAuthReq manager
-    maybe (throwE $ jsonDecodeErr userAuthResp) return $ decode userAuthResp 
+    either (throwE . jsonDecodeErr) return $ eitherDecode userAuthResp 
   where
     userAuthReq :: Request
     userAuthReq = defaultRequest 
@@ -123,7 +129,7 @@ mkAuthHeaderFromCredsClientBS (Credentials clientId clientSecret) = (<>) "Basic 
 clientAuthClient :: Credentials -> Manager -> BaseUrl -> ClientM ClientAuthResp
 clientAuthClient creds manager baseUrl = do
     clientAuthResp <- liftIO $ responseBody <$> httpLbs clientAuthReq manager
-    maybe (throwE $ jsonDecodeErr clientAuthResp) return $ decode clientAuthResp 
+    either (throwE . jsonDecodeErr) return $ eitherDecode clientAuthResp 
   where 
     clientAuthReq :: Request
     clientAuthReq = defaultRequest 
@@ -136,10 +142,7 @@ clientAuthClient creds manager baseUrl = do
       , secure = True
       }
    
-jsonDecodeErr :: BSL.ByteString -> ServantError
-jsonDecodeErr reqBody = DecodeFailure 
-  "Could not parse ClientAuthResp" 
-  ("application" // "json") 
-  reqBody 
+jsonDecodeErr :: String -> ServantError
+jsonDecodeErr = DecodeFailure "Failed to parse: " ("application" // "json") . BSL.fromStrict . BSC.pack 
 
 

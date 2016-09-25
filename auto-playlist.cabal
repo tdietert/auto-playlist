@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Spotify.Api
+  exposed-modules:     AutoPlaylist.Api 
+                       Spotify.Api
                        Spotify.Api.Auth
                        Spotify.Types.Playlist
                        Spotify.Types.Track
@@ -40,6 +41,7 @@ library
                      , bytestring
                      , directory
                      , stm
+                     , Spock
                      , time
   default-language:    Haskell2010
 
@@ -68,6 +70,7 @@ executable auto-playlist-server
                      , transformers
                      , stm
                      , http-client
+                     , aeson
                      , containers
   default-language:    Haskell2010
 

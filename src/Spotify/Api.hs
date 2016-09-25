@@ -78,13 +78,13 @@ data UserClient = UserClient
                       Manager -> BaseUrl -> ClientM PL.Playlist 
   }
 
-spotifyAPI :: Proxy SpotifySearchAPI
+spotifyAPI :: Proxy SpotifyAPI 
 spotifyAPI = Proxy
 
 makeSpotifyAPIClient :: SpotifyClient
 makeSpotifyAPIClient = SpotifyClient{..}
   where
-    (searchAPI :<|> userAPI) = client (Proxy :: Proxy SpotifyAPI)
+    (searchAPI :<|> userAPI) = client spotifyAPI
 
     mkSearchAPI :: Maybe T.Text ->SearchClient
     mkSearchAPI authHeader = SearchClient{..}
