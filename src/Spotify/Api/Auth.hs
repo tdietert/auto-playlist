@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Spotify.Api.Auth where
 
@@ -24,6 +25,8 @@ import           Network.HTTP.Client
 import           Network.HTTP.Types     hiding (Header)
 import           Network.HTTP.Media     
 
+import           Web.HttpApiData 
+
 import           Servant.Client         hiding (responseBody)
 
 clientAuthBaseUrl = BaseUrl Https "accounts.spotify.com" 443 "/api/token"
@@ -32,14 +35,19 @@ userAuthBaseUrl   = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
 newtype RedirectURI = RedirectURI T.Text
   deriving (Generic, Show)
 
-newtype UserAuthData = UserAuthData (T.Text, Maybe T.Text)
-
 -- NOTE:
 --   make ADT for 
--- https://accounts.spotify.com/en/authorize?client_id=ddd07e8d90794e479f14a721c313a032&response_type=code&redirect_uri=http:%2F%2Flocahost:3000&scope=playlist-modify-public
+-- https://accounts.spotify.com/en/authorize?client_id=ddd07e8d90794e479f14a721c313a032&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000&scope=playlist-modify-public
+
+newtype UserAccessToken = UserAccessToken T.Text
+  deriving (Show, Generic, ToJSON, FromJSON)
+
+instance ToHttpApiData UserAccessToken where
+  toUrlPiece = coerce
+  toQueryParam = coerce
 
 data UserAuthResp = UserAuthResp
-  { uaresp_access_token  :: T.Text
+  { uaresp_access_token  :: UserAccessToken
   , uaresp_token_type    :: T.Text
   , uaresp_scope         :: T.Text
   , uaresp_expires_in    :: Int

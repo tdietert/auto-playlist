@@ -32,9 +32,8 @@ main = do
             Left err -> putStrLn $ "Could not authenticate client: " ++ show err
             Right authTokResp -> case map T.pack rest of
                 (searchQuery:searchType:_) -> do 
-                  
                   -- Next, run test search
-                  let (SpotifyClient searchClient) = makeSpotifyAPIClient 
+                  let (SpotifyClient searchClient userClient) = makeSpotifyAPIClient 
                       searchReq = (searchTracks $ searchClient $ Just $ 
                         toHeaderVal authTokResp) (Just searchQuery) (Just searchType) Nothing Nothing Nothing manager spotifyBaseUrl 
                   searchResult <- runExceptT searchReq 
@@ -45,4 +44,4 @@ main = do
     otherwise -> putStrLn invalidArgs
 
 invalidArgs :: String
-invalidArgs = "Error: Please enter two args, <clientId> <clientSecret> <searchQuery> <type>."
+invalidArgs = "Error: Please enter two args, <clientId> <clientSecret> <query> <type>."

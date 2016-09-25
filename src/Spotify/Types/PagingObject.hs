@@ -19,7 +19,7 @@ data PagingObject a = PagingObject
   { po_href :: Text
   , po_items :: [a]
   , po_limit :: Int
-  , po_next     :: Text
+  , po_next     :: Maybe Text
   , po_offset   :: Int
   , po_previous :: Maybe Text
   , po_total    :: Int

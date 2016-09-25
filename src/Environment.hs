@@ -18,6 +18,7 @@ import           Network.HTTP.Client.TLS         (tlsManagerSettings)
 
 import           GHC.Generics (Generic) 
 
+import           Spotify.Api
 import           Spotify.Api.Auth
 
 import           System.Directory      (doesFileExist)
@@ -49,6 +50,7 @@ readConfig fp = do
 data Environment = Environment 
   { config :: Config 
   , userAuthTokens :: TV.TVar (Map T.Text UserAuthResp) 
+  , spotifyClient :: SpotifyClient
   , manager :: Manager
   }
 
@@ -59,7 +61,8 @@ initEnvironment configFp = do
     Nothing -> return Nothing
     Just conf -> do
       state <- STM.atomically $ TV.newTVar empty
+      let spotifyClient = makeSpotifyAPIClient
       manager <- newManager tlsManagerSettings
-      return $ Just $ Environment conf state manager
+      return $ Just $ Environment conf state spotifyClient manager
   
 

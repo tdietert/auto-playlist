@@ -1,4 +1,3 @@
-
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -33,9 +32,29 @@ data Playlist = Playlist
   , pl_uri             :: Text
   } deriving (Generic, Show)
 
+instance ToJSON Playlist where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "pl_" }
+
+instance FromJSON Playlist where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 3 }
+
 data PlaylistTrack = PlaylistTrack 
   { pltr_added_at :: Maybe UTCTime
   , pltr_added_by :: Object
   , pltr_is_local :: Bool
   , pltr_track    :: T.Track
   } deriving (Generic, Show)
+
+instance ToJSON PlaylistTrack where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "pltr_" }
+
+instance FromJSON PlaylistTrack where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }
+
+data CreatePlaylist = CreatePlaylist
+  { name   :: Text
+  , public :: Bool
+  } deriving (Generic, Show)
+
+instance ToJSON CreatePlaylist 
+instance FromJSON CreatePlaylist 

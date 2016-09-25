@@ -20,6 +20,7 @@ library
                        Spotify.Types.Playlist
                        Spotify.Types.Track
                        Spotify.Types.PagingObject
+                       Spotify.Types.User
                        Environment
   build-depends:       base >= 4.7 && < 5
                      , aeson 
@@ -28,6 +29,7 @@ library
                      , http-types
                      , http-media
                      , http-client-tls
+                     , http-api-data
                      , mtl
                      , text
                      , transformers

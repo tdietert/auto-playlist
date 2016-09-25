@@ -22,6 +22,8 @@ import           Servant.Client
 import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Playlist     as PL
 import qualified Spotify.Types.Track        as T 
+import qualified Spotify.Types.User         as U 
+import qualified Spotify.Api.Auth           as Auth
 
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
 
@@ -34,10 +36,15 @@ data TrackResponse = TrackResponse
 instance FromJSON TrackResponse
 instance ToJSON TrackResponse
 
-type SpotifyAPI = "v1" :>  Header "Authorization" T.Text :> SpotifySearchAPI
+type SpotifyAPI = "v1" :>  
+  (    Header "Authorization" T.Text :> SpotifySearchAPI
+  :<|> Header "Authorization" Auth.UserAccessToken :> SpotifyUserAPI
+  )
 
 data SpotifyClient = SpotifyClient 
-  { mkSearchAPI :: Maybe T.Text -> SearchClient } 
+  { mkSearchAPI :: Maybe T.Text -> SearchClient 
+  , mkUserAPI :: Maybe Auth.UserAccessToken -> UserClient 
+  } 
 
 type SpotifySearchAPI = "search" :> 
   QueryParam "q" T.Text :> 
@@ -55,16 +62,37 @@ data SearchClient = SearchClient
                     Manager -> BaseUrl -> ClientM TrackResponse
   } 
 
+newtype UserID = UserID T.Text
+type SpotifyUserAPI = 
+      "me" :> Get '[JSON] U.UserPrivate
+  :<|> "users" :>
+      ( Capture "user_id" T.Text :> 
+        "playlists" :> 
+        ReqBody '[JSON] PL.CreatePlaylist :> 
+        Post '[JSON] PL.Playlist   
+      )
+
+data UserClient = UserClient
+  { me :: Manager -> BaseUrl -> ClientM U.UserPrivate
+  , createPlaylist :: T.Text -> PL.CreatePlaylist -> 
+                      Manager -> BaseUrl -> ClientM PL.Playlist 
+  }
+
 spotifyAPI :: Proxy SpotifySearchAPI
 spotifyAPI = Proxy
 
 makeSpotifyAPIClient :: SpotifyClient
 makeSpotifyAPIClient = SpotifyClient{..}
   where
-    searchAPI = client (Proxy :: Proxy SpotifyAPI)
+    (searchAPI :<|> userAPI) = client (Proxy :: Proxy SpotifyAPI)
 
     mkSearchAPI :: Maybe T.Text ->SearchClient
     mkSearchAPI authHeader = SearchClient{..}
       where
         searchTracks = searchAPI authHeader 
+    
+    mkUserAPI :: Maybe Auth.UserAccessToken -> UserClient
+    mkUserAPI uaTok = UserClient{..} 
+      where 
+        (me :<|> createPlaylist) = userAPI uaTok
 
