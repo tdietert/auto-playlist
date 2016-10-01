@@ -23,7 +23,7 @@ import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Playlist     as PL
 import qualified Spotify.Types.Track        as T 
 import qualified Spotify.Types.User         as U 
-import qualified Spotify.Api.Auth           as Auth
+import qualified Spotify.Api.Auth.User      as UA
 
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
 
@@ -38,12 +38,12 @@ instance ToJSON TrackResponse
 
 type SpotifyAPI = "v1" :>  
   (    Header "Authorization" T.Text :> SpotifySearchAPI
-  :<|> Header "Authorization" Auth.UserAccessToken :> SpotifyUserAPI
+  :<|> Header "Authorization" UA.UserAccessToken :> SpotifyUserAPI
   )
 
 data SpotifyClient = SpotifyClient 
   { mkSearchAPI :: Maybe T.Text -> SearchClient 
-  , mkUserAPI :: Maybe Auth.UserAccessToken -> UserClient 
+  , mkUserAPI :: Maybe UA.UserAccessToken -> UserClient 
   } 
 
 type SpotifySearchAPI = "search" :> 
@@ -91,7 +91,7 @@ makeSpotifyAPIClient = SpotifyClient{..}
       where
         searchTracks = searchAPI authHeader 
     
-    mkUserAPI :: Maybe Auth.UserAccessToken -> UserClient
+    mkUserAPI :: Maybe UA.UserAccessToken -> UserClient
     mkUserAPI uaTok = UserClient{..} 
       where 
         (me :<|> createPlaylist) = userAPI uaTok

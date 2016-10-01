@@ -17,7 +17,8 @@ library
   hs-source-dirs:      src
   exposed-modules:     AutoPlaylist.Api 
                        Spotify.Api
-                       Spotify.Api.Auth
+                       Spotify.Api.Auth.Client
+                       Spotify.Api.Auth.User
                        Spotify.Types.Playlist
                        Spotify.Types.Track
                        Spotify.Types.PagingObject

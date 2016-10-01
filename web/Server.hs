@@ -2,16 +2,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import           Control.Monad.Trans.Except   (runExceptT)
 import           Web.Spock.Shared
 import           Web.Spock.Safe
 
 import           Spotify.Api
-import           Spotify.Api.Auth
+import           Spotify.Api.Auth.Client
 
-import           System.Environment              (getArgs)
+import           System.Environment           (getArgs)
 
-import           AutoPlaylist.Api                      (app)
-import           Environment                     (initEnvironment)
+import           AutoPlaylist.Api             (app)
+import           Environment                  (Config(..), Environment(..), initEnvironment)
 
 main :: IO ()
 main = do
@@ -22,8 +23,12 @@ main = do
         mEnv <- initEnvironment confFp
         case mEnv of
           Nothing -> return ()
-          Just env -> do
-            runSpock 3000 $ spock (spockCfg env) app 
+          Just env@(Environment conf _ _ manager) -> do
+            eAuthTokResp <- runExceptT $ 
+              clientAuthClient (credentials conf) manager clientAuthBaseUrl
+            case eAuthTokResp of
+              Left err -> putStrLn $ "Could not authenticate server: " ++ show err
+              Right authTokResp -> runSpock 3000 $ spock (spockCfg env) app 
   where
     spockCfg env = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
 

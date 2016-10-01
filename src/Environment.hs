@@ -3,25 +3,26 @@
 
 module Environment where
 
-import qualified Control.Monad.STM               as STM
-import qualified Control.Concurrent.STM.TVar     as TV
+import qualified Control.Monad.STM            as STM
+import qualified Control.Concurrent.STM.TVar  as TV
 
-import           Data.Aeson                     
-import           Data.Aeson.Types                (defaultOptions, Options(..))
-import qualified Data.ByteString.Lazy.Char8      as BSL
+import           Data.Aeson                   
+import           Data.Aeson.Types             (defaultOptions, Options(..))
+import qualified Data.ByteString.Lazy.Char8   as BSL
 import           Data.Map
-import           Data.Monoid                     ((<>))
+import           Data.Monoid                  ((<>))
 import qualified Data.Text         as T
 
 import           Network.HTTP.Client
-import           Network.HTTP.Client.TLS         (tlsManagerSettings)
+import           Network.HTTP.Client.TLS      (tlsManagerSettings)
 
 import           GHC.Generics (Generic) 
 
 import           Spotify.Api
-import           Spotify.Api.Auth
+import           Spotify.Api.Auth.Client
+import           Spotify.Api.Auth.User
 
-import           System.Directory      (doesFileExist)
+import           System.Directory             (doesFileExist)
 
 data Config = Config
   { redirectUri  :: RedirectURI 

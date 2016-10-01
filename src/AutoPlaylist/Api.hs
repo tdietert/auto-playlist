@@ -27,7 +27,8 @@ import           Data.Monoid                     ((<>))
 import qualified Data.Text                       as T
 
 import           Spotify.Api
-import           Spotify.Api.Auth
+import           Spotify.Api.Auth.User           as UA
+import           Spotify.Api.Auth.Client         as CA
 import           Spotify.Types.Playlist          as PL
 import           Spotify.Types.User              as U 
 
@@ -35,6 +36,7 @@ import           Environment
 
 app :: SpockM () () Environment ()
 app = do
+  -- this should probably be the redirURI in the "login" endpoint...
   get root $ do
     (Environment conf userTokensTV spotifyClient manager) <- getState
     code <- param' "code"
@@ -49,19 +51,15 @@ app = do
         -- if user is authenticated, set code as cookie
         setCookie "code" code defaultCookieSettings
         liftIO $ STM.atomically $ TV.modifyTVar userTokensTV (insert code userAuthResp)
-    text $ "Code: " <> code 
-
-  get "user-auth" $ do
-    mCode <- cookie "code"
-    case mCode of 
-      Nothing -> text "Auth Error: no cookie found."
-      Just code -> do 
-        userAuthToksTV <- userAuthTokens <$> getState
-        userAuthToks  <- liftIO $ TV.readTVarIO userAuthToksTV
-        case Map.lookup code userAuthToks of
-          Nothing -> liftIO $ putStrLn $ 
-            "User with code: " <> T.unpack code <> " does not exist." 
-          Just authTok -> json authTok
+    file "text/html" $ T.unpack $ redirectFile conf
+   
+  -- https://developer.spotify.com/web-api/authorization-guide/#authorization-code-flow
+  get "login" $ do
+    (Environment config _ _ manager) <- getState
+    let (Config redirUri _ (Credentials cId _)) = config
+        req = UserLoginReq cId redirUri Nothing (Just "playlist-modify-public") Nothing 
+    redirect . T.pack . show . getUri $ 
+      mkUserLoginRequest req manager userAuthBaseUrl
 
   post ("playlist" <//> "create" <//> var) $ \name -> do
     liftIO $ putStrLn "Trying to create playlist..."
@@ -109,7 +107,7 @@ withUserAccessToken f = do
     Just code -> do 
       userAuthToksTV <- userAuthTokens <$> getState
       mUserAuthTok <- liftIO $ Map.lookup code <$> TV.readTVarIO userAuthToksTV
-      case f . uaresp_access_token <$> mUserAuthTok of
+      case f . UA.access_token <$> mUserAuthTok of
         Nothing -> liftIO $ putStrLn $
             "User with code: " <> T.unpack code <> " does not exist." 
         Just res -> return ()
