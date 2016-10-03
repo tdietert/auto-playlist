@@ -14,41 +14,25 @@ import           GHC.Generics             (Generic)
 import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Track        as T
 
-data UserPublic = UserPublic
-  { upub_display_name  :: Text
-  , upub_external_urls :: Object
-  , upub_followers     :: Object
-  , upub_href          :: Text
-  , upub_id            :: Text
-  , upub_images        :: [Object]
-  , upub_type          :: Text
-  , upub_uri           :: Text
+
+data User = User
+  { u_birthdate     :: Maybe Text
+  , u_country       :: Maybe Text
+  , u_display_name  :: Text
+  , u_email         :: Maybe Text
+  , u_external_urls :: Object
+  , u_followers     :: Object
+  , u_href          :: Text
+  , u_id            :: Text
+  , u_images        :: [Object]
+  , u_product       :: Maybe Text
+  , u_type          :: Text
+  , u_uri           :: Text
   } deriving (Generic,Show)
 
-instance FromJSON UserPublic where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = (++) "upub_" }
+instance FromJSON User where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 2 }
+instance ToJSON User where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "u_" }
 
-instance ToJSON UserPublic where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 5 }
-
-data UserPrivate = UserPrivate
-  { upriv_birthdate      :: Text
-  , upriv_country        :: Text
-  , upriv_display_name  :: Text
-  , upriv_email          :: Text
-  , upriv_external_urls :: Object
-  , upriv_followers     :: Object
-  , upriv_href          :: Text
-  , upriv_id            :: Text
-  , upriv_images        :: [Object]
-  , upriv_product        :: Text
-  , upriv_type          :: Text
-  , upriv_uri           :: Text
-  } deriving (Generic,Show)
-
-instance FromJSON UserPrivate where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = (++) "upriv_" }
-
-instance ToJSON UserPrivate where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 6 }
 

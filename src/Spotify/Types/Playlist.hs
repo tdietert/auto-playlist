@@ -17,10 +17,10 @@ import qualified Spotify.Types.Track        as T
 -- | Spotify Playlist Object
 data Playlist = Playlist
   { pl_collaborative   :: Bool 
-  , pl_description     :: Text 
+  , pl_description     :: Maybe Text 
   , pl_external_urls   :: Object
   , pl_followers       :: Object
-  , pl_href            :: Text
+  , pl_href            :: Maybe Text
   , pl_id              :: Text
   , pl_images          :: [Object]
   , pl_name            :: Text

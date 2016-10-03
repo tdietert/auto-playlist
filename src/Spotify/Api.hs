@@ -64,7 +64,7 @@ data SearchClient = SearchClient
 
 newtype UserID = UserID T.Text
 type SpotifyUserAPI = 
-      "me" :> Get '[JSON] U.UserPrivate
+      "me" :> Get '[JSON] U.User
   :<|> "users" :>
       ( Capture "user_id" T.Text :> 
         "playlists" :> 
@@ -73,7 +73,7 @@ type SpotifyUserAPI =
       )
 
 data UserClient = UserClient
-  { me :: Manager -> BaseUrl -> ClientM U.UserPrivate
+  { me :: Manager -> BaseUrl -> ClientM U.User
   , createPlaylist :: T.Text -> PL.CreatePlaylist -> 
                       Manager -> BaseUrl -> ClientM PL.Playlist 
   }

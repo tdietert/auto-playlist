@@ -26,24 +26,25 @@ library
                        Environment
   build-depends:       base >= 4.7 && < 5
                      , aeson 
+                     , base64-bytestring
+                     , bytestring
                      , containers
+                     , directory
+                     , filepath
                      , http-client
                      , http-types
                      , http-media
                      , http-client-tls
                      , http-api-data
                      , mtl
-                     , text
-                     , transformers
                      , servant 
                      , servant-client 
                      , servant-server
-                     , base64-bytestring
-                     , bytestring
-                     , directory
-                     , stm
                      , Spock
+                     , stm
+                     , text
                      , time
+                     , transformers
   default-language:    Haskell2010
 
 executable auto-playlist-exe

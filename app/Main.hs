@@ -12,7 +12,7 @@ import           Spotify.Api
 
 import           System.Environment      (getArgs)
 
-import           AutoPlaylist.Api              (testCreatePlaylist, testUserAuth)
+import           AutoPlaylist.Api              
 import           Environment
 
 main :: IO ()

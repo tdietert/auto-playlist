@@ -56,6 +56,7 @@ instance FromJSON UserAccessToken where
 instance ToHttpApiData UserAccessToken where
   toUrlPiece = coerce
   toQueryParam = coerce
+  toHeader (UserAccessToken uatok) = "Bearer " <> T.encodeUtf8 uatok
 
 -- no prefixes on fields because 
 -- querying Spotify API spec in Spotify/Api.hs
