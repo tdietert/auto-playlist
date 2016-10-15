@@ -32,7 +32,8 @@ data User = User
 
 instance FromJSON User where
   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 2 }
+
 instance ToJSON User where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "u_" }
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 2 }
 
 

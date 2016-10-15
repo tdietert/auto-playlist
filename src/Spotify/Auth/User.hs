@@ -3,7 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Spotify.Api.Auth.User where
+module Spotify.Auth.User where
 
 import           Control.Monad
 import           Control.Monad.Trans
@@ -31,7 +31,7 @@ import           Network.HTTP.Media
 import           Web.HttpApiData 
 
 import           Servant.Client          hiding (responseBody)
-import           Spotify.Api.Auth.Client 
+import           Spotify.Auth.Client 
 
 userAuthBaseUrl   = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
 

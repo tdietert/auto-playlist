@@ -23,7 +23,7 @@ import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Playlist     as PL
 import qualified Spotify.Types.Track        as T 
 import qualified Spotify.Types.User         as U 
-import qualified Spotify.Api.Auth.User      as UA
+import qualified Spotify.Auth.User      as UA
 
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
 

@@ -19,8 +19,8 @@ import           Network.HTTP.Client.TLS      (tlsManagerSettings)
 import           GHC.Generics (Generic) 
 
 import           Spotify.Api
-import           Spotify.Api.Auth.Client
-import           Spotify.Api.Auth.User
+import           Spotify.Auth.Client
+import           Spotify.Auth.User
 
 import           System.Directory             (doesFileExist)
 

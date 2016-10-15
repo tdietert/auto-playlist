@@ -3,7 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Spotify.Api.Auth.Client where
+module Spotify.Auth.Client where
 
 import           Control.Monad
 import           Control.Monad.Trans.Except (throwE)

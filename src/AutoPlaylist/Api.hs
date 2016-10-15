@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module AutoPlaylist.Api 
-  (app
+  ( app
   ) where
 
 import           Web.Spock.Shared
@@ -26,8 +26,8 @@ import           Data.Monoid                     ((<>))
 import qualified Data.Text                       as T
 
 import           Spotify.Api
-import           Spotify.Api.Auth.User           as UA
-import           Spotify.Api.Auth.Client         as CA
+import           Spotify.Auth.User           as UA
+import           Spotify.Auth.Client         as CA
 import           Spotify.Types.Playlist          as PL
 import           Spotify.Types.User              as U 
 
@@ -84,11 +84,15 @@ app = do
               Left err -> do
                 liftIO $ putStrLn "Couldn't create playlist..."
                 json $ T.pack $ show err
-              Right pl -> json pl 
+              Right pl -> text $ T.pack $ show pl
+
+  post ("playlist" <//> "build" <//> var <//> var) $ \(genre :: T.Text) (n :: Int) -> do
+    liftIO $ putStrLn $ "Adding " ++ show n ++ " songs in genre " ++ T.unpack genre
+    text "wut"
 
 -- | Helpers
 --------------
-withUserAccessToken :: (MonadIO m, HasSpock (ActionCtxT ctx m),
+withUserAccessToken :: (MonadIO m, HasSpock (ActionCtxT ctx m), Show b,
                        SpockState (ActionCtxT ctx m) ~ Environment) =>
                       (UserAccessToken -> ActionCtxT ctx m b) -> ActionCtxT ctx m () 
 withUserAccessToken f = do
@@ -98,10 +102,11 @@ withUserAccessToken f = do
     Just code -> do 
       userAuthToksTV <- userAuthTokens <$> getState
       mUserAuthTok <- liftIO $ Map.lookup code <$> TV.readTVarIO userAuthToksTV
-      case f . UA.access_token <$> mUserAuthTok of
+      let mUatok = UA.access_token <$> mUserAuthTok 
+      case mUatok of 
         Nothing -> liftIO $ putStrLn $
             "User with code: " <> T.unpack code <> " does not exist." 
-        Just res -> void $ res 
+        Just uatok -> void $ f uatok -- case match on token expiration here 
 
 withUserClient :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                   SpockState (ActionCtxT ctx m) ~ Environment) =>

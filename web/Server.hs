@@ -7,7 +7,7 @@ import           Web.Spock.Shared
 import           Web.Spock.Safe
 
 import           Spotify.Api
-import           Spotify.Api.Auth.Client
+import           Spotify.Auth.Client
 
 import           System.Environment           (getArgs)
 

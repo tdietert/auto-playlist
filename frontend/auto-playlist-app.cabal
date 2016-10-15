@@ -1,8 +1,8 @@
-name:                auto-playlist
+name:                auto-playlist-app 
 version:             0.1.0.0
 synopsis:            Initial project template from stack
 description:         Please see README.md
-homepage:            https://github.com/githubuser/auto-playlist#readme
+homepage:            https://github.com/githubuser/frontend#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Author name here
@@ -14,18 +14,12 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src
-  exposed-modules:     AutoPlaylist.Api 
-                       Spotify.Api
-                       Spotify.Auth.Client
-                       Spotify.Auth.User
-                       Spotify.Types.Playlist
-                       Spotify.Types.Track
-                       Spotify.Types.PagingObject
-                       Spotify.Types.User
-                       Environment
+  hs-source-dirs:      src, ../src
+  exposed-modules:     Lib
+                     , App
+                     , AutoPlaylist.Api
   build-depends:       base >= 4.7 && < 5
-                     , aeson 
+                     , aeson
                      , base64-bytestring
                      , bytestring
                      , containers
@@ -37,6 +31,8 @@ library
                      , http-client-tls
                      , http-api-data
                      , mtl
+                     , reflex 
+                     , reflex-dom
                      , servant 
                      , servant-client 
                      , servant-server
@@ -47,31 +43,18 @@ library
                      , transformers
   default-language:    Haskell2010
 
-executable auto-playlist-server
-  hs-source-dirs:      web
-  main-is:             Server.hs
+executable auto-playlist-app
+  hs-source-dirs:      app
+  main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , auto-playlist
-                     , mtl
-                     , text
-                     , Spock
-                     , transformers
-                     , stm
-                     , http-client
-                     , aeson
-                     , containers
+  build-depends:       auto-playlist-app
   default-language:    Haskell2010
 
-test-suite auto-playlist-test
+test-suite auto-playlist-app-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , auto-playlist
+                     , auto-playlist-app 
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
-
-source-repository head
-  type:     git
-  location: https://github.com/githubuser/auto-playlist

@@ -33,7 +33,7 @@ data Playlist = Playlist
   } deriving (Generic, Show)
 
 instance ToJSON Playlist where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "pl_" }
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 3 }
 
 instance FromJSON Playlist where
   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 3 }
@@ -46,7 +46,7 @@ data PlaylistTrack = PlaylistTrack
   } deriving (Generic, Show)
 
 instance ToJSON PlaylistTrack where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "pltr_" }
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 5 }
 
 instance FromJSON PlaylistTrack where
   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }

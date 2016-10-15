@@ -1,0 +1,27 @@
+flags: {}
+extra-package-dbs: []
+packages:
+- '.'
+- location:
+    git: https://github.com/reflex-frp/reflex-dom-contrib.git
+    commit: d6c744928c81bdb0cd3141f05f7529dc0dae5327
+
+extra-deps:
+- ref-tf-0.4.0.1
+- ghcjs-dom-0.2.4.0
+- zenc-0.1.1
+- webkitgtk3-javascriptcore-0.13.2.0
+- reflex-0.4.0
+- reflex-dom-0.3
+- reflex-dom-contrib-0.4.1
+
+resolver: lts-6.20
+
+compiler: ghcjs-0.2.0.9006020_ghc-7.10.3
+compiler-check: match-exact
+setup-info:
+  ghcjs:
+    source:
+      ghcjs-0.2.0.9006020_ghc-7.10.3:
+        url: http://ghcjs.tolysz.org/lts-6.20-9006020.tar.gz
+        sha1: a6cea90cd8121eee3afb201183c6e9bd6bacd94a

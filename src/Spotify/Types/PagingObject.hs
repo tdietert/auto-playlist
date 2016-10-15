@@ -26,7 +26,7 @@ data PagingObject a = PagingObject
   } deriving (Generic, Show)
 
 instance ToJSON a => ToJSON (PagingObject a) where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "po_" } 
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 3 } 
 
 instance FromJSON a => FromJSON (PagingObject a) where
   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 3 } 

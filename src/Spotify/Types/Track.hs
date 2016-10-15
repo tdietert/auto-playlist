@@ -43,7 +43,7 @@ instance Show Track where
     ]
 
 instance ToJSON Track where
-  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = (++) "track_" }
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 6 }
 
 instance FromJSON Track where
   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 6 }
