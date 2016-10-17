@@ -2,7 +2,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import           Control.Monad
 import           Control.Monad.Trans.Except   (runExceptT)
+
 import           Web.Spock.Shared
 import           Web.Spock.Safe
 

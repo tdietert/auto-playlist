@@ -16,13 +16,20 @@ import qualified Control.Concurrent.STM.TVar     as TV
 import           Control.Monad.Trans             (liftIO, MonadIO)
 import           Control.Monad.Trans.Except      (runExceptT)
 
-import           Network.HTTP.Client
+import           Network.HTTP.Client             (getUri)
 import           Network.HTTP.Types.Header
+import           Network.HTTP.Types.Status
+import           Network.Wai                     
 
 import           Data.Aeson                      hiding (json)
+import           Data.Bifunctor                  (first)
+import qualified Data.ByteString                 as BS
+import qualified Data.ByteString.Char8           as BSC
 import           Data.Coerce                     (coerce)
-import           Data.Map                        as Map
+import qualified Data.Map                        as Map
+import           Data.Maybe                      (fromMaybe)
 import           Data.Monoid                     ((<>))
+import           Data.String                     (fromString, IsString(..))
 import qualified Data.Text                       as T
 
 import           Spotify.Api
@@ -38,11 +45,13 @@ import           Environment
 app :: SpockM () () Environment ()
 app = do
 
+  middleware corsMiddleware
+
   -- serve static dir
   get (static "public" <//> var) $ \filename -> do
     file "text/html" $ "public" </> filename
 
-  -- this should probably be the redirURI in the "login" endpoint...
+  -- spotify redirects user to this url after authenticated   
   get root $ do
     (Environment conf userTokensTV spotifyClient manager) <- getState
     code <- param' "code"
@@ -56,10 +65,13 @@ app = do
       Right (userAuthResp :: UserAuthResp) -> do
         -- if user is authenticated, set code as cookie
         setCookie "code" code defaultCookieSettings
-        liftIO $ STM.atomically $ TV.modifyTVar userTokensTV (insert code userAuthResp)
+        liftIO $ STM.atomically $ 
+          TV.modifyTVar userTokensTV (Map.insert code userAuthResp)
     redirect $ redirectFile conf
    
   -- https://developer.spotify.com/web-api/authorization-guide/#authorization-code-flow
+  -- builds user auth req and redirects to spotify login,
+  -- when logged in, user is redirected to 'root'
   get "login" $ do
     (Environment config _ _ manager) <- getState
     let (Config redirUri _ (Credentials cId _)) = config
@@ -116,6 +128,31 @@ withUserClient :: (MonadIO m, HasSpock (ActionCtxT ctx m),
 withUserClient uatok actionWithClient = do
   SpotifyClient _ userClient <- spotifyClient <$> getState
   actionWithClient (userClient $ Just uatok) 
+
+corsMiddleware :: Middleware
+corsMiddleware app req respond = 
+    app req $ respond . mapResponseHeaders (++ mkCorsHeaders req)
+  where
+    mkCorsHeaders :: (IsString a, IsString b) => Request -> [(a, b)]
+    mkCorsHeaders req = [allowOrigin, allowHeaders, allowMethods, allowCredentials]
+      where allowOrigin  = 
+              ( fromString "Access-Control-Allow-Origin"
+              , fromString . BSC.unpack $
+                  fromMaybe "*" . lookup "origin" $ 
+                    requestHeaders $ req
+              )
+            allowHeaders =
+              ( fromString "Access-Control-Allow-Headers"
+              , fromString "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+              )
+            allowMethods = 
+              ( fromString "Access-Control-Allow-Methods"
+              , fromString "GET, POST, PUT, OPTIONS, DELETE"
+              )
+            allowCredentials = 
+              ( fromString "Access-Control-Allow-Credentials"
+              , fromString "true"
+              )
 
 {- Find better place to put this 
 withManagerAndBaseUrl :: (MonadIO m, HasSpock (ActionCtxT ctx m),

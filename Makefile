@@ -8,10 +8,10 @@ backend:
 
 frontend:
 	cd frontend && stack build -j4
-	cd frontend && cp -R ../public/* `stack path --dist-dir`/build/auto-playlist-app/auto-playlist-app.jsexe/
+	cd frontend && cp -R `stack path --dist-dir`/build/auto-playlist-app/auto-playlist-app.jsexe/* ../public/appjs
 
-frontend-open: frontend 
-	cd frontend && google-chrome `stack path --dist-dir`/build/auto-playlist-app/auto-playlist-app.jsexe/index.html
+frontend-open: frontend
+	cd frontend && google-chrome http://localhost:3001/public/index.html
 
 setup: backend-setup frontend-setup
 
