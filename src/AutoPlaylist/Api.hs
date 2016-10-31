@@ -20,12 +20,14 @@ import           Network.HTTP.Client             (getUri)
 import           Network.HTTP.Types.Header
 import           Network.HTTP.Types.Status
 import           Network.Wai                     
+import qualified Network.Wai.Middleware.Static   as MWS
 
 import           Data.Aeson                      hiding (json)
 import           Data.Bifunctor                  (first)
 import qualified Data.ByteString                 as BS
 import qualified Data.ByteString.Char8           as BSC
 import           Data.Coerce                     (coerce)
+import           Data.List                       (foldl')
 import qualified Data.Map                        as Map
 import           Data.Maybe                      (fromMaybe)
 import           Data.Monoid                     ((<>))
@@ -45,14 +47,13 @@ import           Environment
 app :: SpockM () () Environment ()
 app = do
 
-  middleware corsMiddleware
+  middleware corsMiddleware 
+  middleware MWS.static -- change this to explicit at some point
 
-  -- serve static dir
-  get (static "public" <//> var) $ \filename -> do
-    file "text/html" $ "public" </> filename
+  get root $ file "text/html" "public/index.html"
 
   -- spotify redirects user to this url after authenticated   
-  get root $ do
+  get "callback" $ do
     (Environment conf userTokensTV spotifyClient manager) <- getState
     code <- param' "code"
     let userAuthReq = UserAuthReq code (redirectUri conf)
@@ -67,7 +68,7 @@ app = do
         setCookie "code" code defaultCookieSettings
         liftIO $ STM.atomically $ 
           TV.modifyTVar userTokensTV (Map.insert code userAuthResp)
-    redirect $ redirectFile conf
+        file "text/html" "public/logged-in.html"
    
   -- https://developer.spotify.com/web-api/authorization-guide/#authorization-code-flow
   -- builds user auth req and redirects to spotify login,
@@ -76,8 +77,10 @@ app = do
     (Environment config _ _ manager) <- getState
     let (Config redirUri _ (Credentials cId _)) = config
         req = UserLoginReq cId redirUri Nothing (Just "playlist-modify-public") Nothing 
-    redirect . T.pack . show . getUri $ 
-      mkUserLoginRequest req manager userAuthBaseUrl
+    let authURL = T.pack . show . getUri $ 
+          mkUserLoginRequest req manager userAuthBaseUrl
+    -- return url for client to use
+    text authURL
 
   post ("playlist" <//> "create" <//> var) $ \name -> do
     liftIO $ putStrLn "Trying to create playlist..."
@@ -137,13 +140,14 @@ corsMiddleware app req respond =
     mkCorsHeaders req = [allowOrigin, allowHeaders, allowMethods, allowCredentials]
       where allowOrigin  = 
               ( fromString "Access-Control-Allow-Origin"
-              , fromString . BSC.unpack $
-                  fromMaybe "*" . lookup "origin" $ 
-                    requestHeaders $ req
+             -- , fromString . BSC.unpack $
+             --     const "*" . lookup "origin" $ 
+             --       requestHeaders req             
+              , "*"
               )
             allowHeaders =
               ( fromString "Access-Control-Allow-Headers"
-              , fromString "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+              , fromString "Origin, Cache-Control, X-Requested-With, Content-Type, Accept, Authorization"
               )
             allowMethods = 
               ( fromString "Access-Control-Allow-Methods"

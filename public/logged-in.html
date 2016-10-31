@@ -14,6 +14,7 @@
   </head>
   <body>
   <form>
+    <div><p>Congratulations! You are logged in!"</p></div>
     <div class="form-group">
       <label>Enter name of playlist:</label>
       <input type="text">
@@ -22,16 +23,4 @@
     </div>
     <div id="demo"></div>
   </body>
-  <script>
-   var xhttp = new XMLHttpRequest();
-   
-   xhttp.onreadystatechange = function() {
-       if (this.readyState == 4 && this.status == 200) {
-           document.getElementById("demo").innerHTML = this.responseText;
-       }
-   };
-
-   xhttp.open("POST", "http://localhost:3000/playlist/create/test", true);
-   xhttp.send();
-  </script>
 </html>

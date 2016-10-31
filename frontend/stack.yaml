@@ -5,13 +5,14 @@ packages:
 - '../../reflex-dom'
 - '../../reflex'
 
+
 extra-deps:
 - ref-tf-0.4.0.1
 - ghcjs-dom-0.2.4.0
 - zenc-0.1.1
 - webkitgtk3-javascriptcore-0.13.2.0
 # - reflex-0.4.0
-# - reflex-dom-0.3
+# - reflex-dom-contrib-0.4.1
 
 resolver: lts-6.20
 
