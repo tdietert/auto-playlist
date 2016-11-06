@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Spotify.Auth.User where
@@ -32,14 +32,15 @@ import           Web.HttpApiData
 
 import           Servant.Client          hiding (responseBody)
 import           Spotify.Auth.Client 
+import qualified Spotify.Types.User         as U 
 
 userAuthBaseUrl   = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
 
-newtype RedirectURI = RedirectURI T.Text
-  deriving (Generic, Show)
+data LoggedIn = LoggedIn (Maybe U.User) | NotLoggedIn
+  deriving (Generic, ToJSON, FromJSON)
 
-instance ToJSON RedirectURI
-instance FromJSON RedirectURI 
+newtype RedirectURI = RedirectURI T.Text
+  deriving (Generic, Show, ToJSON, FromJSON)
 
 -- NOTE:
 --   make ADT for 

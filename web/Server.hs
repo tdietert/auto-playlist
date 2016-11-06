@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 import           Control.Monad
-import           Control.Monad.Trans.Except   (runExceptT)
+import           Control.Monad.Trans.Except (runExceptT)
 
 import           Web.Spock.Shared
 import           Web.Spock.Safe
@@ -11,10 +11,12 @@ import           Web.Spock.Safe
 import           Spotify.Api
 import           Spotify.Auth.Client
 
-import           System.Environment           (getArgs)
+import           System.Environment         (getArgs)
 
-import           AutoPlaylist.Api             (app)
-import           Environment                  (Config(..), Environment(..), initEnvironment)
+import           AutoPlaylist.Api           (app)
+
+import           Environment                (Config(..), Environment(..), initEnvironment)
+import           Server.Utils               (staticMiddleware)
 
 main :: IO ()
 main = do
@@ -30,7 +32,10 @@ main = do
               clientAuthClient (credentials conf) manager clientAuthBaseUrl
             case eAuthTokResp of
               Left err -> putStrLn $ "Could not authenticate server: " ++ show err
-              Right authTokResp -> runSpock 3000 $ spock (spockCfg env) app 
+              Right authTokResp -> 
+                runSpock 3000 $ spock (spockCfg env) $ do
+                  middleware staticMiddleware 
+                  app 
   where
     spockCfg env = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
 
