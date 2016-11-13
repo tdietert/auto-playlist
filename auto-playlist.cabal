@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     AutoPlaylist.Api 
+                       AutoPlaylist.Environment
                        Spotify.Api
                        Spotify.Auth.Client
                        Spotify.Auth.User
@@ -23,7 +24,6 @@ library
                        Spotify.Types.Track
                        Spotify.Types.PagingObject
                        Spotify.Types.User
-                       Environment
   build-depends:       base >= 4.7 && < 5
                      , aeson 
                      , base64-bytestring

@@ -3,39 +3,31 @@
 {-# LANGUAGE TypeFamilies #-}
 
 import           Control.Monad
-import           Control.Monad.Trans.Except (runExceptT)
+
+import qualified Data.Text                  as T
+
+import           System.Environment         (getArgs)
 
 import           Web.Spock.Shared
 import           Web.Spock.Safe
 
+import           AutoPlaylist.Api           (app)
+import           AutoPlaylist.Environment   (Config(..), Environment(..), initEnvironment)
+import           Server.Utils               (staticMiddleware)
 import           Spotify.Api
 import           Spotify.Auth.Client
 
-import           System.Environment         (getArgs)
-
-import           AutoPlaylist.Api           (app)
-
-import           Environment                (Config(..), Environment(..), initEnvironment)
-import           Server.Utils               (staticMiddleware)
-
 main :: IO ()
 main = do
-    args <- getArgs
-    case args of
-      [] -> putStrLn "Usage: auto-playlist-server config.json"
-      (confFp:_) -> do
-        mEnv <- initEnvironment confFp
-        case mEnv of
-          Nothing -> return ()
-          Just env@(Environment conf _ _ manager) -> do
-            eAuthTokResp <- runExceptT $ 
-              clientAuthClient (credentials conf) manager clientAuthBaseUrl
-            case eAuthTokResp of
-              Left err -> putStrLn $ "Could not authenticate server: " ++ show err
-              Right authTokResp -> 
-                runSpock 3000 $ spock (spockCfg env) $ do
-                  middleware staticMiddleware 
-                  app 
-  where
-    spockCfg env = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
-
+  args <- getArgs
+  case args of
+    [] -> putStrLn "Usage: auto-playlist-server config.json"
+    (confFp:_) -> do
+      eEnv <- initEnvironment confFp
+      case eEnv of
+        Left err -> putStrLn $ T.unpack err
+        Right env@(Environment conf _ _ _ manager) -> do
+          let spockCfg = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
+          runSpock 3000 $ spock spockCfg $ do
+            middleware staticMiddleware 
+            app 

@@ -8,6 +8,7 @@ import           Control.Monad             (void, join, forM)
 import           Control.Monad.IO.Class    (liftIO)
 
 import           Data.Aeson                (FromJSON(..))
+import           Data.List                 (foldl')
 import qualified Data.Map                  as Map
 import           Data.Maybe                (maybe, fromMaybe)
 import           Data.Monoid               ((<>))
@@ -75,33 +76,62 @@ notLoggedInView = do
 
 loggedInView :: forall t m. (DomBuilder t m, MonadWidget t m) => Maybe U.User -> m ()
 loggedInView mUser = do
-  divClass "row" $ divClass "col-xs-12" $
-    el "h2" $ text $ "Welcome, " <> maybe "User" u_display_name mUser <> "!"
-  divClass "row" $ divClass "col-xs-12" $
-    elAttr "img" 
-      (Map.singleton "src" "https://cdn.meme.am/instances/43160495.jpg") $ return ()
-  divClass "form" $ divClass "form-inline" $ do
-    el "label" $ text "Enter Playlist Name:" 
-    t <- textInput def
+  divRowCol12 $ el "h2" $ 
+    text $ "Welcome, " <> maybe "User" u_display_name mUser <> "!"
+  divRowCol12 $ elAttr "img" 
+    (Map.singleton "src" "https://cdn.meme.am/instances/43160495.jpg") $ return ()
+  divClass "form" $ do
+    
+    playlistName <- formGroup $ 
+      formRowWithLabel "Playlist Name:" $
+        _textInput_value <$> textInput def
+   
+    genre <- formGroup $ 
+      formRowWithLabel "Genre:" $
+        _textInput_value <$> textInput def
+    
+    nSongs <- formGroup $
+      formRowWithLabel "Number of Songs:" $ do
+        let numMap = foldl' (\nmap n -> Map.insert n (T.pack $ show n) nmap) Map.empty [1..50]
+        _dropdown_value <$> dropdown (1 :: Int) (constDyn numMap) def
+
     createBtnE <- button "Create Playlist!"
-    let playlistName = _textInput_value t
-        createPlaylistReqE = attachDynWith (\plname _ ->
-          createPlaylistReq plname) playlistName createBtnE
+    let plReqArgs = (,,) <$> playlistName <*> genre <*> nSongs
+        createPlaylistReqE = attachDynWith 
+          (\(plName,genre,n)-> const $ createPlaylistReq plName genre n) plReqArgs createBtnE
+    
     createPlaylistRespE <- fmap getXhrResponseText <$> 
       performRequestAsync createPlaylistReqE 
     dynText =<< holdDyn "" createPlaylistRespE  
 
----------------
+{- DOM Helpers -}
+divRow :: forall t m a. DomBuilder t m => m a -> m a
+divRow = divClass "row" 
 
+divCol :: forall t m a. DomBuilder t m => Int -> m a -> m a
+divCol x = divClass ("col-xs-" <> T.pack (show x))
+
+divRowCol12 :: forall t m a. DomBuilder t m => m a -> m a
+divRowCol12 = divClass "row" . divClass "col-xs-12"
+
+formGroup :: forall t m a. DomBuilder t m => m a -> m a
+formGroup = divClass "form-group row" 
+
+formRowWithLabel :: forall t m a. DomBuilder t m => T.Text -> m a -> m a
+formRowWithLabel lbl input = do 
+  elClass "label" "col-xs-3 col-form-label" $ text lbl
+  divCol 9 input
+
+{- XHR Helpers -} 
 loginReq :: XhrRequest () 
 loginReq = xhrRequest "GET" "/login" def 
 
 isLoggedInReq :: XhrRequest ()
 isLoggedInReq = xhrRequest "GET" "/is-logged-in" def  
 
-createPlaylistReq :: T.Text -> XhrRequest ()
-createPlaylistReq = flip (xhrRequest "POST") def . 
-  (<>) "/playlist/create/" 
+createPlaylistReq :: T.Text -> T.Text -> Int -> XhrRequest ()
+createPlaylistReq plName genre n = xhrRequest "POST"
+  ("playlist/build/" <> plName <> "/" <> genre <> "/" <> T.pack (show n)) def 
 
 xhrFromURL :: T.Text -> XhrRequest ()  
 xhrFromURL url = xhrRequest "GET" url def

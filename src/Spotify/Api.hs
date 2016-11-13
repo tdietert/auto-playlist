@@ -8,7 +8,7 @@
 
 module Spotify.Api where
 
-import           Data.Aeson             (FromJSON(..), ToJSON(..), decode)
+import           Data.Aeson             (FromJSON(..), ToJSON(..), decode, Object)
 import           Data.Proxy             (Proxy(..))
 import qualified Data.Text              as T
 
@@ -54,28 +54,39 @@ type SpotifySearchAPI = "search" :>
   QueryParam "offset" Int :> Get '[JSON] TrackResponse 
 
 data SearchClient = SearchClient
-  { searchTracks :: Maybe T.Text ->
-                    Maybe T.Text ->
-                    Maybe T.Text ->
-                    Maybe Int -> 
-                    Maybe Int -> 
-                    Manager -> BaseUrl -> ClientM TrackResponse
+  { searchTracks :: Maybe T.Text
+                 -> Maybe T.Text 
+                 -> Maybe T.Text 
+                 -> Maybe Int 
+                 -> Maybe Int
+                 -> Manager -> BaseUrl -> ClientM TrackResponse
   } 
 
 newtype UserID = UserID T.Text
 type SpotifyUserAPI = 
        "me" :> Get '[JSON] U.User
   :<|> "users" :>
-       ( Capture "user_id" T.Text :> 
-         "playlists" :> 
-         ReqBody '[JSON] PL.CreatePlaylist :> 
-         Post '[JSON] PL.Playlist   
-       )
+       Capture "user_id" T.Text :> 
+       "playlists" :>
+       ReqBody '[JSON] PL.CreatePlaylist :> 
+       Post '[JSON] PL.Playlist
+  :<|> "users" :>
+       Capture "user_id" T.Text :> 
+       "playlists" :>
+       Capture "playlist_id" T.Text :>
+       "tracks" :>
+       QueryParam "uris" T.Text :> -- maybe TrackURI type
+       Post '[JSON] Object -- change to json { "snapshot_id" : "zZyq..unLV" }
 
 data UserClient = UserClient
   { me :: Manager -> BaseUrl -> ClientM U.User
-  , createPlaylist :: T.Text -> PL.CreatePlaylist -> 
-                      Manager -> BaseUrl -> ClientM PL.Playlist 
+  , createPlaylist :: T.Text 
+                   -> PL.CreatePlaylist 
+                   -> Manager -> BaseUrl -> ClientM PL.Playlist 
+  , addTracksToPlaylist :: T.Text
+                        -> T.Text
+                        -> Maybe T.Text
+                        -> Manager -> BaseUrl -> ClientM Object
   }
 
 spotifyAPI :: Proxy SpotifyAPI 
@@ -94,5 +105,5 @@ makeSpotifyAPIClient = SpotifyClient{..}
     mkUserAPI :: Maybe UA.UserAccessToken -> UserClient
     mkUserAPI uaTok = UserClient{..} 
       where 
-        (me :<|> createPlaylist) = userAPI uaTok
+        (me :<|> createPlaylist :<|> addTracksToPlaylist) = userAPI uaTok
 

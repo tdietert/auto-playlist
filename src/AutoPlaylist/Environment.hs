@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
 
-module Environment where
+module AutoPlaylist.Environment where
 
 import qualified Control.Monad.STM            as STM
 import qualified Control.Concurrent.STM.TVar  as TV
+import           Control.Monad.Trans.Except   (runExceptT)
 
 import           Data.Aeson                   
 import           Data.Aeson.Types             (defaultOptions, Options(..))
@@ -50,20 +51,29 @@ readConfig fp = do
 
 data Environment = Environment 
   { config :: Config 
+  , clientAuthToken :: TV.TVar ClientAuthResp
   , userAuthTokens :: TV.TVar (Map T.Text UserAuthResp) 
   , spotifyClient :: SpotifyClient
   , manager :: Manager
   }
 
-initEnvironment :: String -> IO (Maybe Environment)
+{- Initializes all necessary mutable states, like client and user auth tokens -}
+initEnvironment :: String -> IO (Either T.Text Environment)
 initEnvironment configFp = do
   mConf <- readConfig configFp
   case mConf of
-    Nothing -> return Nothing
+    Nothing -> return $ Left "Could not parse config file." 
     Just conf -> do
-      state <- STM.atomically $ TV.newTVar empty
+      userAuthToksTV <- STM.atomically $ TV.newTVar empty
       let spotifyClient = makeSpotifyAPIClient
       manager <- newManager tlsManagerSettings
-      return $ Just $ Environment conf state spotifyClient manager
-  
+      eAuthTokResp <- runExceptT $ 
+        clientAuthClient (credentials conf) manager clientAuthBaseUrl
+      case eAuthTokResp of
+        Left err -> return $ Left $ T.pack $ show err
+        Right authTokResp -> do
+          clientAuthTokTV <- STM.atomically $ TV.newTVar authTokResp  
+          return $ Right $ 
+            Environment conf clientAuthTokTV userAuthToksTV spotifyClient manager
+
 
