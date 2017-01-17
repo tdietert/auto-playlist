@@ -26,8 +26,8 @@ main = do
       eEnv <- initEnvironment confFp
       case eEnv of
         Left err -> putStrLn $ T.unpack err
-        Right env@(Environment conf _ _ _ manager) -> do
+        Right env@(Environment conf _ _ _ _ manager) -> do
           let spockCfg = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
           runSpock 3000 $ spock spockCfg $ do
-            middleware staticMiddleware 
-            app 
+            middleware staticMiddleware
+            app
