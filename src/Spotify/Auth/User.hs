@@ -30,17 +30,13 @@ import           Network.HTTP.Media
 
 import           Web.HttpApiData
 
-import           Servant.Client          hiding (responseBody)
+import           Servant.API.ContentTypes  (ToFormUrlEncoded(..))
+import           Servant.Client            hiding (responseBody)
 import           Spotify.Auth.Client
 import qualified Spotify.Types.User         as U
 
-userAuthBaseUrl   = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
-
 data LoggedIn = LoggedIn (Maybe U.User) | NotLoggedIn
   deriving (Generic, ToJSON, FromJSON)
-
-newtype RedirectURI = RedirectURI T.Text
-  deriving (Generic, Show, ToJSON, FromJSON)
 
 newtype UserAccessToken = UserAccessToken T.Text
   deriving (Show, Generic)
@@ -65,33 +61,25 @@ data UserAuthResp = UserAuthResp
   , expires_in    :: Int
   , refresh_token :: T.Text
   , scope         :: T.Text
-  } deriving (Generic,Show)
+  } deriving (Generic, Show, FromJSON)
 
-instance ToJSON UserAuthResp
-instance FromJSON UserAuthResp
+newtype RedirectURI = RedirectURI T.Text
+  deriving (Generic, Show, ToJSON, FromJSON)
+
+newtype Code = Code T.Text
+  deriving (Generic, Show, ToJSON, FromJSON)
 
 data UserAuthReq = UserAuthReq
-  { uareq_code         :: T.Text
-  , uareq_redirect_uri :: RedirectURI
+  { grant_type   :: T.Text
+  , code         :: T.Text
+  , redirect_uri :: T.Text
   } deriving (Generic, Show)
 
-userAuthClient :: UserAuthReq -> Credentials -> Manager -> BaseUrl -> ClientM UserAuthResp
-userAuthClient (UserAuthReq code (RedirectURI redirUri)) creds manager baseUrl = do
-    userAuthResp <- liftIO $ responseBody <$> httpLbs userAuthReq manager
-    either (throwE . jsonDecodeErr) return $ eitherDecode userAuthResp
-  where
-    userAuthReq :: Request
-    userAuthReq = defaultRequest
-      { host = BSC.pack $ baseUrlHost baseUrl
-      , path = BSC.pack $ baseUrlPath baseUrl
-      , port = baseUrlPort baseUrl
-      , requestHeaders = [(hAuthorization, mkAuthHeaderFromCredsClientBS creds),(hContentType, "application/x-www-form-urlencoded")]
-      , requestBody = RequestBodyBS $ BS.intercalate "&" $
-          ["grant_type=authorization_code"
-          ,"code=" <> T.encodeUtf8 code
-          ,"redirect_uri=" <> T.encodeUtf8 redirUri
-          ]
-      , method = "POST"
-      , secure = True
-      }
+-- | TODO use generics to get field names
+instance ToFormUrlEncoded UserAuthReq where
+  toFormUrlEncoded (UserAuthReq gt c ru) =
+    zip ["grant_type","code","redirect_uri"] [gt,c,ru]
 
+mkUserAuthReq :: T.Text -> Code -> RedirectURI -> UserAuthReq
+mkUserAuthReq grantType (Code code) (RedirectURI redirUri) =
+  UserAuthReq grantType code redirUri

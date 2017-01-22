@@ -23,7 +23,8 @@ import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Playlist     as PL
 import qualified Spotify.Types.Track        as T
 import qualified Spotify.Types.User         as U
-import qualified Spotify.Auth.User      as UA
+import qualified Spotify.Auth.User          as UA
+import qualified Spotify.Auth.Client        as CA
 
 spotifyBaseURL = BaseUrl Https "api.spotify.com" 443 ""
 spotifyAuthURL = BaseUrl Https "accounts.spotify.com" 443 ""
@@ -50,23 +51,52 @@ data SpotifyClient = SpotifyClient
 spotifyAuthAPI :: Proxy SpotifyAuthAPI
 spotifyAuthAPI = Proxy
 
-type SpotifyAuthAPI = "authorize"
-  :> QueryParam "client_id" T.Text
-  :> QueryParam "response_type" T.Text
-  :> QueryParam "redirect_uri" T.Text
-  :> QueryParam "state" T.Text
-  :> QueryParam "scope" T.Text
-  :> QueryParam "show_dialog" T.Text
-  :> Get '[JSON] NoContent
+type ClientAuthEndpoint =
+       "api" :> "token"
+       :> Header "Authorization" T.Text
+       :> ReqBody '[FormUrlEncoded] CA.ClientAuthReq
+       :> Post '[JSON] CA.ClientAuthResp
+
+clientAuthEndpoint :: Proxy UserAuthEndpoint
+clientAuthEndpoint = Proxy
+
+type UserAuthEndpoint =
+       "authorize"
+       :> QueryParam "client_id" T.Text
+       :> QueryParam "response_type" T.Text
+       :> QueryParam "redirect_uri" T.Text
+       :> QueryParam "state" T.Text
+       :> QueryParam "scope" T.Text
+       :> QueryParam "show_dialog" T.Text
+       :> Get '[JSON] NoContent
+
+userAuthEndpoint :: Proxy UserAuthEndpoint
+userAuthEndpoint = Proxy
+
+type SpotifyAuthAPI =
+       ClientAuthEndpoint
+  :<|> UserAuthEndpoint
+  :<|> "api" :> "token"
+       :> Header "Authorization" T.Text
+       :> ReqBody '[FormUrlEncoded] UA.UserAuthReq
+       :> Post '[JSON] UA.UserAuthResp
 
 data SpotifyAuthClient = SpotifyAuthClient
-  { authorize :: Maybe T.Text
-              -> Maybe T.Text
-              -> Maybe T.Text
-              -> Maybe T.Text
-              -> Maybe T.Text
-              -> Maybe T.Text
-              -> Manager -> BaseUrl -> ClientM NoContent
+  { authClient :: Maybe T.Text
+               -> CA.ClientAuthReq
+               -> Manager -> BaseUrl -> ClientM CA.ClientAuthResp
+
+  , authUser   :: Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Manager -> BaseUrl -> ClientM NoContent
+
+  , token      :: Maybe T.Text
+               -> UA.UserAuthReq
+               -> Manager -> BaseUrl -> ClientM UA.UserAuthResp
   }
 
 type SpotifySearchAPI = "search"
@@ -117,7 +147,9 @@ spotifyAPI :: Proxy SpotifyAPI
 spotifyAPI = Proxy
 
 mkSpotifyAuthClient :: SpotifyAuthClient
-mkSpotifyAuthClient = SpotifyAuthClient $ client spotifyAuthAPI
+mkSpotifyAuthClient = SpotifyAuthClient{..}
+  where
+    (authClient :<|> authUser :<|> token) = client spotifyAuthAPI
 
 mkSpotifyAPIClient :: SpotifyClient
 mkSpotifyAPIClient = SpotifyClient{..}

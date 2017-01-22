@@ -67,10 +67,10 @@ initEnvironment configFp = do
     Just conf -> do
       userAuthToksTV <- STM.atomically $ TV.newTVar empty
       let spotifyClient = mkSpotifyAPIClient
-          spotifyAuthClient = mkSpotifyAuthClient
+          spotifyAuthClient@(SpotifyAuthClient clientAuthEndpoint _ _) = mkSpotifyAuthClient
       manager <- newManager tlsManagerSettings
-      eAuthTokResp <- runExceptT $
-        clientAuthClient (spotifyCredentials conf) manager clientAuthBaseUrl
+      eAuthTokResp <- runExceptT $ clientAuthEndpoint
+        (Just $ mkAuthHeaderFromCredsClient $ spotifyCredentials conf) basicClientAuthReq manager spotifyAuthURL
       case eAuthTokResp of
         Left err -> return $ Left $ T.pack $ show err
         Right authTokResp -> do
