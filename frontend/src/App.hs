@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module App (main) where
 
+import           Control.Applicative
 import           Control.Monad             (void, join, forM)
 import           Control.Monad.IO.Class    (liftIO)
 
@@ -25,6 +27,7 @@ import           Reflex.Dom
 import           AutoPlaylist.Api
 import           Spotify.Auth.User               as UA
 import           Spotify.Types.User              as U
+import           Spotify.Types.Track             as ST
 
 
 main :: IO ()
@@ -45,7 +48,7 @@ main =  mainWidget $ void $ do
           -- | Test if user is logged in
           (loggedInE, loggedInU) <- newTriggerEvent
           liftIO $ loggedInU ()
-          mIsLoggedInE <- fmap getXhrResponseJSON <$>
+          mIsLoggedInE <- fmap decodeXhrResponse <$>
             performRequestAsync (const isLoggedInReq <$> loggedInE)
 
           -- View changes based on result of isLoggedInE, base view is nothing
@@ -72,10 +75,13 @@ notLoggedInView = do
     return $ domEvent Click e
 
   let loginReqE = fmap (const loginReq) loginBtnE
-  loginRespE <- fmap getXhrResponseText <$>
-    performRequestAsync loginReqE
+  loginRespE <- fmap getXhrResponseText <$> performRequestAsync loginReqE
+
   -- redirect to spotify for authorization
-  performEvent_ $ liftIO . setWindowLoc <$> loginRespE
+  performEvent_ $ flip fmap loginRespE $ \mResp -> do
+    case mResp of
+      Just loginUrl -> liftIO $ setWindowLoc loginUrl
+      Nothing -> return ()
 
 loggedInView :: forall t m. (DomBuilder t m, MonadWidget t m) => Maybe U.User -> m ()
 loggedInView mUser = do
@@ -83,34 +89,45 @@ loggedInView mUser = do
   divRowCol12 $ el "h2" $
     text $ "Welcome, " <> maybe "User" u_display_name mUser <> "!"
 
-  divRowCol12 $ elAttr "img"
-    (Map.singleton "src" "https://cdn.meme.am/instances/43160495.jpg") $ return ()
-
   divRowCol12 $ el "form" $ do
 
-    playlistName <- formGroup $
-      formRowWithLabel "Playlist Name:" $
-        _textInput_value <$> textInput def
+    (searchQ, searchBtnE) <- formGroup $ divClass "input-group" $ do
+      searchText <- liftA _textInput_value $ textInput $
+        def { _textInputConfig_attributes = constDyn $ Map.singleton "class" "form-control" }
+      searchBtnE <- elClass "span" "input-group-btn" $ buttonClass "Search" "btn btn-default"
 
-    genre <- formGroup $
-      formRowWithLabel "Genre:" $
-        _textInput_value <$> textInput def
+      return (searchText, searchBtnE)
 
-    nSongs <- formGroup $
-      formRowWithLabel "Number of Songs:" $ do
-        let numMap = foldl' (\nmap n -> Map.insert n (T.pack $ show n) nmap) Map.empty [1..50]
-        _dropdown_value <$> dropdown (1 :: Int) (constDyn numMap) def
+    let searchReqE = attachDynWith
+          (\searchQ' -> const $ spotifySearchReq searchQ') searchQ searchBtnE
 
-    createBtnE <- button "Create Playlist!"
-    let plReqArgs = (,,) <$> playlistName <*> genre <*> nSongs
-        createPlaylistReqE = attachDynWith
-          (\(plName,genre,n)-> const $ createPlaylistReq plName genre n) plReqArgs createBtnE
-
-    createPlaylistRespE <- fmap getXhrResponseText <$>
-      performRequestAsync createPlaylistReqE
-    dynText =<< holdDyn "" createPlaylistRespE
+    searchRespE <- fmap decodeXhrResponse <$> performRequestAsync searchReqE :: m (Event t (Maybe [ST.Track]))
+    -- Event t (Maybe [Track])
+    void $ widgetHold (return ()) $ flip fmap searchRespE $ \mTracks ->
+      case mTracks of
+        Nothing -> return ()
+        Just tracks -> elAttrs "table" [("style","border-spacing:10px;")] $
+          mapM_ trackWidget tracks
 
 {- DOM Helpers -}
+elAttrs :: (DomBuilder t m) => T.Text -> [(T.Text,T.Text)] -> m () -> m ()
+elAttrs tag attrs = elAttr tag (Map.fromList attrs)
+
+trackWidget :: (DomBuilder t m) => ST.Track -> m ()
+trackWidget ST.Track{..} = do
+  el "tr" $ mapM_ (el "th" . text) [ "Title", "Preview Url" ]
+  el "tr" $ mapM_ (el "td")
+    [ text track_name
+    , maybe (text "No track preview.")
+        (\url -> elAttrs "a" [("href", url), ("target","blank_")] $ text url)
+        track_preview_url
+    ]
+
+buttonClass :: DomBuilder t m => T.Text -> T.Text -> m (Event t ())
+buttonClass t class_ = do
+  (e,_) <- elAttr' "button" (Map.insert "class" class_ $ Map.singleton "type" "button") $ text t
+  return $ domEvent Click e
+
 divRow :: forall t m a. DomBuilder t m => m a -> m a
 divRow = divClass "row"
 
@@ -139,14 +156,14 @@ createPlaylistReq :: T.Text -> T.Text -> Int -> XhrRequest ()
 createPlaylistReq plName genre n = xhrRequest "POST"
   ("playlist/build/" <> plName <> "/" <> genre <> "/" <> T.pack (show n)) def
 
+spotifySearchReq :: T.Text -> XhrRequest ()
+spotifySearchReq query = xhrRequest "POST" ("spotify/search/" <> query) def
+
 xhrFromURL :: T.Text -> XhrRequest ()
 xhrFromURL url = xhrRequest "GET" url def
 
-getXhrResponseText :: XhrResponse -> T.Text
-getXhrResponseText = fromMaybe "Error" . _xhrResponse_responseText
-
-getXhrResponseJSON :: FromJSON a => XhrResponse -> Maybe a
-getXhrResponseJSON = decodeText . getXhrResponseText
+getXhrResponseText :: XhrResponse -> Maybe T.Text
+getXhrResponseText = _xhrResponse_responseText
 
 setWindowLoc :: T.Text -> IO ()
 setWindowLoc = js_setWindowLoc . textToJSString

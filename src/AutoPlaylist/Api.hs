@@ -109,6 +109,22 @@ app = do
 
   -- | NOTE (TODO)
   -- |   refresh token could have expired, so need to request new one
+  subcomponent "spotify" $
+
+    post ("search" <//> var) $ \query -> do
+      liftIO $ putStrLn "Performing spotify search..."
+
+      -- Search for Songs
+      eTracks <- withSearchClient $ \(SearchClient searchTracks) -> spotifyApiCall $
+        searchTracks (Just query) (Just "track") Nothing (Just 10) Nothing
+
+      case eTracks of
+        Left err -> do
+          liftIO $ putStrLn $ "Failed track search: " ++ show err
+          json ("error" :: T.Text) -- TODO: Make JSON error
+        Right trackResp -> do
+          let tracks = PO.po_items $ Spot.tracks trackResp
+          json tracks
 
   -- check if user has entry in the TVar user map.
   post ("playlist" <//> "build" <//> var <//> var <//> var) $ \plName genre n -> do
