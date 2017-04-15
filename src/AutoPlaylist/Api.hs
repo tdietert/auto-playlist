@@ -8,8 +8,7 @@ module AutoPlaylist.Api
   ( app
   ) where
 
-import           Web.Spock.Shared
-import           Web.Spock.Safe
+import           Web.Spock
 
 import           Control.Monad                   (void)
 import           Control.Monad.Except
@@ -26,11 +25,11 @@ import           Data.Aeson                      hiding (json)
 import           Data.Bifunctor                  (first,bimap)
 import           Data.List                       (foldl')
 import qualified Data.Map                        as Map
-import           Data.Maybe                      (fromMaybe, catMaybes)
+import           Data.Maybe                      (fromMaybe, mapMaybe)
 import           Data.Monoid                     ((<>))
 import qualified Data.Text                       as T
 
-import           Servant.Client                  (BaseUrl)
+import           Servant.Client                  (ClientM, ServantError)
 
 import           Spotify.Api                     as Spot
 import           Spotify.Auth.User               as UA
@@ -51,7 +50,7 @@ app = do
 
   -- spotify redirects user to this url after authenticated
   get "callback" $ do
-    (Environment conf _ userTokensTV _ manager) <- getState
+    (Environment conf _ userTokensTV _ _ spotifyAuthEnv) <- getState
     
     -- | Note:
     -- |   spotify could respond with `error` and `state` query params
@@ -61,8 +60,8 @@ app = do
     let userAuthReq = UserAuthReq code (redirectUri conf)
     -- authenticate user who was redirected to this endpoint
     liftIO $ putStrLn "Authenticating user with code..."
-    eUserAuthResp <- liftIO $ runExceptT $
-      userAuthClient userAuthReq (credentials conf) manager clientAuthBaseUrl
+    eUserAuthResp <- liftIO $ flip runSpotifyUserAuthClientM spotifyAuthEnv $
+      userAuthClient userAuthReq (credentials conf) 
     case eUserAuthResp of
       Left err -> liftIO $ putStrLn $ "Could not authenticate user: " ++ show err
       Right (userAuthResp :: UserAuthResp) -> do
@@ -77,11 +76,10 @@ app = do
   -- builds user auth req and redirects to spotify login,
   -- when logged in, user is redirected to 'root'
   get "login" $ do
-    (Environment config _ _ _ manager) <- getState
+    (Environment config _ _ _ _ spotifyAuthEnv) <- getState
     let (Config redirUri _ (Credentials cId _)) = config
-        req = UserLoginReq cId redirUri Nothing (Just "playlist-modify-public") Nothing 
-    let authURL = T.pack . show . getUri $ 
-          mkUserLoginRequest req manager userAuthBaseUrl
+        req = mkUserLoginReq cId redirUri "playlist-modify-public"
+        authURL = T.pack . show . getUri $ mkLoginReq req spotifyAuthEnv
     -- return url for client to use
     text authURL
 
@@ -121,7 +119,7 @@ app = do
     case ePlidAndUid of
       Left err -> do 
         liftIO $ putStrLn "[Error] Couldn't create playlist:" 
-        liftIO $ putStrLn $ show err
+        liftIO $ print err
         text $ T.pack $ show err
       Right (plId, uId) -> do
         
@@ -132,16 +130,16 @@ app = do
           searchTracks (Just genre) (Just "track") Nothing (Just $ min n 50) Nothing
        
         -- Add songs to playlist
-        eResp <- withUserClient $ \(UserClient _ _ addTracksPL) -> do
+        eResp <- withUserClient $ \(UserClient _ _ addTracksPL) -> 
           case eTracks of
             Left err -> return $ Left $ T.pack $ show err 
             Right trackResp -> do
               let tracks = PO.po_items $ Spot.tracks trackResp 
-                  trackUris = catMaybes $ map ST.track_uri tracks
+                  trackUris = mapMaybe ST.track_uri tracks
               
               -- LOG
               liftIO $ putStrLn "Tracks Found:" 
-              forM tracks $ \track -> liftIO $ 
+              forM_ tracks $ \track -> liftIO $ 
                 putStrLn $ T.unpack $ ST.track_name track 
               
               first (T.pack . show) <$>
@@ -166,7 +164,7 @@ withUserAccessToken f = do
     Just code -> do 
       userAuthToksTV <- userAuthTokens <$> getState
       mUserAuthTok <- liftIO $ Map.lookup code <$> TV.readTVarIO userAuthToksTV
-      let mUatok = UA.access_token <$> mUserAuthTok 
+      let mUatok = UA.uaresp_access_token <$> mUserAuthTok 
       case mUatok of 
         Nothing -> return $ Left $ "User with code: " <> code <> " does not exist." 
         Just uatok -> f uatok -- case match on token expiration here 
@@ -184,25 +182,21 @@ withUserClient :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                   SpockState (ActionCtxT ctx m) ~ Environment) 
                => (UserClient -> ActionCtxT ctx m (Either T.Text b))
                -> ActionCtxT ctx m (Either T.Text b)
-withUserClient actionWithClient = do
-  withUserAccessToken $ \uatok -> do
-    SpotifyClient _ userClient <- spotifyClient <$> getState
-    actionWithClient (userClient $ Just uatok) 
+withUserClient actionWithClient = withUserAccessToken $ \uatok -> do
+  SpotifyClient _ userClient <- spotifyApiClient <$> getState
+  actionWithClient (userClient $ Just uatok) 
 
 withSearchClient :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                     SpockState (ActionCtxT ctx m) ~ Environment)
                  => (SearchClient -> ActionCtxT ctx m b)
                  -> ActionCtxT ctx m b
-withSearchClient actionWithClient = do
-  withClientAuthTok $ \clientAuthTok -> do 
-    SpotifyClient searchClient _ <- spotifyClient <$> getState
-    actionWithClient (searchClient $ Just $ "Bearer " <> clientAuthTok) 
+withSearchClient actionWithClient = withClientAuthTok $ \clientAuthTok -> do 
+  SpotifyClient searchClient _ <- spotifyApiClient <$> getState
+  actionWithClient (searchClient $ Just $ "Bearer " <> clientAuthTok) 
 
 spotifyApiCall  :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                    SpockState (ActionCtxT ctx m) ~ Environment) 
-                => (Manager -> BaseUrl -> ExceptT err IO b) 
-                -> ActionCtxT ctx m (Either err b) 
-spotifyApiCall f = do
-  manager <- manager <$> getState
-  liftIO $ runExceptT $ 
-    f manager spotifyBaseUrl
+                => (ClientM b) -> ActionCtxT ctx m (Either ServantError b) 
+spotifyApiCall apiCall = do
+  spotifyApiEnv' <- spotifyApiEnv <$> getState
+  liftIO $ runSpotifyApiClientM apiCall spotifyApiEnv' 

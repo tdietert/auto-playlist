@@ -1,59 +1,68 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Spotify.Auth.Client where
 
 import           Control.Monad
-import           Control.Monad.Trans.Except (throwE)
+import           Control.Monad.Reader    (ask)
+import           Control.Monad.Except    (throwError)
 import           Control.Monad.Trans
 
-import           Data.Aeson             hiding (encode)
-import           Data.Aeson.Types       (Options(..), defaultOptions)
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
-import qualified Data.ByteString.Char8  as BSC
-import           Data.ByteString.Base64 (encode)
-import           Data.Coerce            (coerce)
-import           Data.Monoid            ((<>))
-import qualified Data.Text              as T 
-import qualified Data.Text.Encoding     as T
+import           Data.Aeson              hiding (encode)
+import           Data.Aeson.Types        (Options(..), defaultOptions)
+import qualified Data.ByteString         as BS
+import qualified Data.ByteString.Lazy    as BSL
+import qualified Data.ByteString.Char8   as BSC
+import           Data.ByteString.Base64  (encode)
+import           Data.Coerce             (coerce)
+import           Data.Monoid             ((<>))
+import qualified Data.Text               as T 
+import qualified Data.Text.Encoding      as T
 
-import           GHC.Generics           (Generic)
+import           GHC.Generics            (Generic)
 
 import           Network.HTTP.Client 
-import           Network.HTTP.Types     hiding (Header)
-import           Network.HTTP.Media     
+import           Network.HTTP.Client.TLS (tlsManagerSettings)  
+import           Network.HTTP.Types      hiding (Header)
+import           Network.HTTP.Media       
 
-import           Servant.Client         hiding (responseBody)
+import           Servant.Client          hiding (responseBody)
+import           Servant.Common.Req      hiding (responseBody)
 
+clientAuthBaseUrl :: BaseUrl
 clientAuthBaseUrl = BaseUrl Https "accounts.spotify.com" 443 "/api/token"
 
-newtype ClientId = ClientId T.Text deriving (Show, Generic)
-instance ToJSON ClientId
-instance FromJSON ClientId
+newtype SpotifyClientAuthEnv = SpotifyClientAuthEnv 
+  { getSpotifyClientAuthEnv :: ClientEnv } 
 
-newtype ClientSecret = ClientSecret T.Text deriving (Show, Generic)
-instance ToJSON ClientSecret  
-instance FromJSON ClientSecret 
+mkSpotifyClientAuthEnv :: IO SpotifyClientAuthEnv 
+mkSpotifyClientAuthEnv = do
+  manager <- newManager tlsManagerSettings
+  return $ SpotifyClientAuthEnv $ ClientEnv manager clientAuthBaseUrl 
+
+runSpotifyClientAuthClientM :: ClientM a -> SpotifyClientAuthEnv -> IO (Either ServantError a)
+runSpotifyClientAuthClientM clientM = runClientM clientM . getSpotifyClientAuthEnv 
+
+newtype ClientId = ClientId 
+  { getClientId :: T.Text }
+  deriving (Show, Generic, ToJSON, FromJSON)
+
+newtype ClientSecret = ClientSecret 
+  { getClientSecret :: T.Text } 
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 data Credentials = Credentials 
   { clientId :: ClientId 
   , clientSecret :: ClientSecret
-  } deriving (Show, Generic)
-
-instance ToJSON Credentials  
-instance FromJSON Credentials 
+  } deriving (Show, Generic, ToJSON, FromJSON)
 
 data ClientAuthResp = ClientAuthResp
   { access_token :: T.Text
   , token_type :: T.Text
   , expires_in :: Int
-  } deriving (Generic, Show)
-
-instance FromJSON ClientAuthResp 
-instance ToJSON ClientAuthResp 
+  } deriving (Show, Generic, ToJSON, FromJSON)
 
 class ToHeaderVal a where
   toHeaderVal :: a -> T.Text
@@ -69,13 +78,17 @@ mkAuthHeaderFromCredsClientBS :: Credentials -> BS.ByteString
 mkAuthHeaderFromCredsClientBS (Credentials clientId clientSecret) = (<>) "Basic " $
   encode . T.encodeUtf8 $ coerce clientId <> ":" <> coerce clientSecret
 
-clientAuthClient :: Credentials -> Manager -> BaseUrl -> ClientM ClientAuthResp
-clientAuthClient creds manager baseUrl = do
-    clientAuthResp <- liftIO $ responseBody <$> httpLbs clientAuthReq manager
-    either (throwE . jsonDecodeErr) return $ eitherDecode clientAuthResp 
+clientAuthClient :: Credentials -> ClientM ClientAuthResp
+clientAuthClient creds = do
+    (ClientEnv manager baseUrl) <- ask 
+    clientAuthResp <- liftIO $ responseBody <$> 
+      httpLbs (mkClientAuthReq baseUrl) manager
+    case eitherDecode clientAuthResp of
+      Left err -> throwError $ jsonDecodeErr err 
+      Right resp -> return resp
   where 
-    clientAuthReq :: Request
-    clientAuthReq = defaultRequest 
+    mkClientAuthReq :: BaseUrl -> Request
+    mkClientAuthReq baseUrl = defaultRequest 
       { host = BSC.pack $ baseUrlHost baseUrl 
       , path = BSC.pack $ baseUrlPath baseUrl 
       , port = baseUrlPort baseUrl

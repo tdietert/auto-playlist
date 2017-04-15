@@ -6,16 +6,17 @@ import           Control.Monad
 
 import qualified Data.Text                  as T
 
-import           System.Environment         (getArgs)
 
-import           Web.Spock.Shared
-import           Web.Spock.Safe
+import           Web.Spock
+import           Web.Spock.Config
 
 import           AutoPlaylist.Api           (app)
 import           AutoPlaylist.Environment   (Config(..), Environment(..), initEnvironment)
 import           Server.Utils               (staticMiddleware)
 import           Spotify.Api
 import           Spotify.Auth.Client
+
+import           System.Environment         (getArgs)
 
 main :: IO ()
 main = do
@@ -26,8 +27,6 @@ main = do
       eEnv <- initEnvironment confFp
       case eEnv of
         Left err -> putStrLn $ T.unpack err
-        Right env@(Environment conf _ _ _ manager) -> do
-          let spockCfg = SpockCfg env PCNoDatabase (defaultSessionCfg ()) Nothing
-          runSpock 3000 $ spock spockCfg $ do
-            middleware staticMiddleware 
-            app 
+        Right env -> do
+          spockCfg <- defaultSpockCfg () PCNoDatabase env
+          runSpock 3000 $ spock spockCfg $ middleware staticMiddleware >> app 

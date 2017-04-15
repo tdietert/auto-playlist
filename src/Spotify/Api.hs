@@ -8,13 +8,14 @@
 
 module Spotify.Api where
 
-import           Data.Aeson             (FromJSON(..), ToJSON(..), decode, Object)
-import           Data.Proxy             (Proxy(..))
-import qualified Data.Text              as T
+import           Data.Aeson               (FromJSON(..), ToJSON(..), decode, Object)
+import           Data.Proxy               (Proxy(..))
+import qualified Data.Text                as T
 
-import           GHC.Generics           (Generic)
+import           GHC.Generics             (Generic)
 
-import           Network.HTTP.Client    hiding (Proxy)   
+import           Network.HTTP.Client      hiding (Proxy)   
+import           Network.HTTP.Client.TLS  (tlsManagerSettings)
 
 import           Servant.API
 import           Servant.Client         
@@ -25,7 +26,19 @@ import qualified Spotify.Types.Track        as T
 import qualified Spotify.Types.User         as U 
 import qualified Spotify.Auth.User      as UA
 
+spotifyBaseUrl :: BaseUrl
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
+
+newtype SpotifyApiEnv = SpotifyApiEnv 
+  { getSpotifyApiEnv :: ClientEnv } 
+
+mkSpotifyApiEnv :: IO SpotifyApiEnv 
+mkSpotifyApiEnv = do
+  manager <- newManager tlsManagerSettings
+  return $ SpotifyApiEnv $ ClientEnv manager spotifyBaseUrl
+
+runSpotifyApiClientM :: ClientM a -> SpotifyApiEnv -> IO (Either ServantError a)
+runSpotifyApiClientM clientM = runClientM clientM . getSpotifyApiEnv 
 
 -- Note:
 --   data ItemTypes = TrackItems | ArtistItems 
@@ -59,7 +72,7 @@ data SearchClient = SearchClient
                  -> Maybe T.Text 
                  -> Maybe Int 
                  -> Maybe Int
-                 -> Manager -> BaseUrl -> ClientM TrackResponse
+                 -> ClientM TrackResponse
   } 
 
 newtype UserID = UserID T.Text
@@ -79,25 +92,25 @@ type SpotifyUserAPI =
        Post '[JSON] Object -- change to json { "snapshot_id" : "zZyq..unLV" }
 
 data UserClient = UserClient
-  { me :: Manager -> BaseUrl -> ClientM U.User
+  { me :: ClientM U.User
   , createPlaylist :: T.Text 
                    -> PL.CreatePlaylist 
-                   -> Manager -> BaseUrl -> ClientM PL.Playlist 
+                   -> ClientM PL.Playlist 
   , addTracksToPlaylist :: T.Text
                         -> T.Text
                         -> Maybe T.Text
-                        -> Manager -> BaseUrl -> ClientM Object
+                        -> ClientM Object
   }
 
 spotifyAPI :: Proxy SpotifyAPI 
 spotifyAPI = Proxy
 
-makeSpotifyAPIClient :: SpotifyClient
-makeSpotifyAPIClient = SpotifyClient{..}
+mkSpotifyAPIClient :: SpotifyClient
+mkSpotifyAPIClient = SpotifyClient{..}
   where
     (searchAPI :<|> userAPI) = client spotifyAPI
 
-    mkSearchAPI :: Maybe T.Text ->SearchClient
+    mkSearchAPI :: Maybe T.Text -> SearchClient
     mkSearchAPI authHeader = SearchClient{..}
       where
         searchTracks = searchAPI authHeader 

@@ -34,14 +34,6 @@ main =  mainWidget $ void $ do
       divClass "col-md-12" $ 
         divClass "app-container" $ do
           
-          {- Example: 
-          btnEs <- divClass "btn-group" $ 
-            fmap leftmost <$> forM [1..9] $ \n -> do
-              b <- button $ T.pack $ show n
-              return $ const (T.pack $ show n) <$> b 
-          el "p" $ dynText =<< holdDyn "0" btnEs      
-          -}
-            
           -- | Test if user is logged in 
           (loggedInE, loggedInU) <- newTriggerEvent 
           liftIO $ loggedInU ()

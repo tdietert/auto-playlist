@@ -6,8 +6,9 @@
 module Spotify.Auth.User where
 
 import           Control.Monad
-import           Control.Monad.Trans
-import           Control.Monad.Trans.Except
+import           Control.Monad.Reader    (ask)
+import           Control.Monad.Trans     (liftIO)
+import           Control.Monad.Except
 
 import           Data.Aeson              hiding (encode)            
 import           Data.Aeson.Types        (Options(..), defaultOptions)
@@ -16,7 +17,6 @@ import qualified Data.ByteString         as BS
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.ByteString.Char8   as BSC
 import           Data.ByteString.Base64  (encode)
-import           Data.Coerce             (coerce)
 import           Data.List               (intercalate, concat)
 import           Data.Monoid             ((<>))
 import qualified Data.Text               as T 
@@ -26,6 +26,7 @@ import           GHC.Generics            (Generic)
 
 import           Network.HTTP.Client 
 import           Network.HTTP.Types      hiding (Header)
+import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.HTTP.Media      
 
 import           Web.HttpApiData 
@@ -34,12 +35,25 @@ import           Servant.Client          hiding (responseBody)
 import           Spotify.Auth.Client 
 import qualified Spotify.Types.User         as U 
 
-userAuthBaseUrl   = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
+userAuthBaseUrl :: BaseUrl
+userAuthBaseUrl = BaseUrl Https "accounts.spotify.com" 443 "/authorize"
+
+newtype SpotifyUserAuthEnv = SpotifyUserAuthEnv 
+  { getSpotifyUserAuthEnv :: ClientEnv } 
+
+mkSpotifyUserAuthEnv :: IO SpotifyUserAuthEnv 
+mkSpotifyUserAuthEnv = do
+  manager <- newManager tlsManagerSettings
+  return $ SpotifyUserAuthEnv $ ClientEnv manager userAuthBaseUrl 
+
+runSpotifyUserAuthClientM :: ClientM a -> SpotifyUserAuthEnv -> IO (Either ServantError a)
+runSpotifyUserAuthClientM clientM = runClientM clientM . getSpotifyUserAuthEnv 
 
 data LoggedIn = LoggedIn (Maybe U.User) | NotLoggedIn
   deriving (Generic, ToJSON, FromJSON)
 
-newtype RedirectURI = RedirectURI T.Text
+newtype RedirectURI = RedirectURI 
+  { getRedirectURI :: T.Text }
   deriving (Generic, Show, ToJSON, FromJSON)
 
 -- NOTE:
@@ -55,24 +69,22 @@ instance FromJSON UserAccessToken where
   parseJSON = fmap UserAccessToken . parseJSON 
 
 instance ToHttpApiData UserAccessToken where
-  toUrlPiece = coerce
-  toQueryParam = coerce
+  toUrlPiece (UserAccessToken uatok) = uatok 
+  toQueryParam (UserAccessToken uatok) = uatok 
   toHeader (UserAccessToken uatok) = "Bearer " <> T.encodeUtf8 uatok
 
--- no prefixes on fields because 
--- querying Spotify API spec in Spotify/Api.hs
--- is local and decodes JSON from Spotify server,
--- so 2 prefixes are added: uaresp_uaresp_access_token.
 data UserAuthResp = UserAuthResp
-  { access_token  :: UserAccessToken
-  , token_type    :: T.Text
-  , expires_in    :: Int
-  , refresh_token :: T.Text
-  , scope         :: T.Text
-  } deriving (Generic,Show)
+  { uaresp_access_token  :: UserAccessToken
+  , uaresp_token_type    :: T.Text
+  , uaresp_expires_in    :: Int
+  , uaresp_refresh_token :: T.Text
+  , uaresp_scope         :: T.Text
+  } deriving (Show, Generic)
 
-instance ToJSON UserAuthResp 
-instance FromJSON UserAuthResp 
+instance ToJSON UserAuthResp where 
+   toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 6 }
+instance FromJSON UserAuthResp where
+   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 6 } 
 
 data UserLoginReq = UserLoginReq
   { ulreq_client_id    :: ClientId 
@@ -85,22 +97,27 @@ data UserLoginReq = UserLoginReq
 instance ToJSON UserLoginReq where 
    toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 6 }
 instance FromJSON UserLoginReq where
-   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = (++) "ulreq_" } 
+   parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 6 } 
+
+mkUserLoginReq :: ClientId -> RedirectURI -> T.Text -> UserLoginReq
+mkUserLoginReq cid redirUri scope = UserLoginReq cid redirUri Nothing (Just scope) Nothing
 
 -- User & response from Spotify are sent to 'redirect_uri'
-mkUserLoginRequest :: UserLoginReq -> Manager -> BaseUrl -> Request
-mkUserLoginRequest (UserLoginReq cId redirUri mState mScope mShowDialog) manager baseUrl = 
-    userLoginReq 
+mkLoginReq :: UserLoginReq -> SpotifyUserAuthEnv -> Request
+mkLoginReq userLoginReq env = userLoginRequest 
   where
-    userLoginReq :: Request
-    userLoginReq = defaultRequest
+    (UserLoginReq cId redirUri mState mScope mShowDialog) = userLoginReq
+    (SpotifyUserAuthEnv (ClientEnv manager baseUrl)) = env
+
+    userLoginRequest :: Request
+    userLoginRequest = defaultRequest
       { host = BSC.pack $ baseUrlHost baseUrl
       , path = BSC.pack $ baseUrlPath baseUrl
       , port = baseUrlPort baseUrl
       , queryString = renderQuery True $ 
           map (second $ fmap T.encodeUtf8) $
-            [ ("client_id", Just $ coerce cId)
-            , ("redirect_uri", Just $ coerce redirUri)
+            [ ("client_id", Just $ getClientId cId)
+            , ("redirect_uri", Just $ getRedirectURI redirUri)
             , ("response_type", Just "code") -- always the same
             , ("state", mState)
             , ("scope", mScope)
@@ -114,13 +131,15 @@ data UserAuthReq = UserAuthReq
   , uareq_redirect_uri :: RedirectURI
   } deriving (Generic, Show)
 
-userAuthClient :: UserAuthReq -> Credentials -> Manager -> BaseUrl -> ClientM UserAuthResp
-userAuthClient (UserAuthReq code (RedirectURI redirUri)) creds manager baseUrl = do
-    userAuthResp <- liftIO $ responseBody <$> httpLbs userAuthReq manager
-    either (throwE . jsonDecodeErr) return $ eitherDecode userAuthResp 
+userAuthClient :: UserAuthReq -> Credentials -> ClientM UserAuthResp
+userAuthClient (UserAuthReq code (RedirectURI redirUri)) creds = do
+    (ClientEnv manager baseUrl) <- ask 
+    userAuthResp <- liftIO $ responseBody <$> httpLbs (mkUserAuthReq baseUrl) manager
+    either (throwError . jsonDecodeErr) return $ eitherDecode userAuthResp 
   where
-    userAuthReq :: Request
-    userAuthReq = defaultRequest 
+    
+    mkUserAuthReq :: BaseUrl -> Request
+    mkUserAuthReq baseUrl = defaultRequest 
       { host = BSC.pack $ baseUrlHost baseUrl 
       , path = BSC.pack $ baseUrlPath baseUrl 
       , port = baseUrlPort baseUrl

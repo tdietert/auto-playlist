@@ -9,7 +9,7 @@ import           Data.String                   (fromString, IsString(..))
 import           Network.Wai                     
 import qualified Network.Wai.Middleware.Static as MWS
 
-import           Web.Spock.Safe
+import           Web.Spock
 
 staticMiddleware :: Middleware
 staticMiddleware = MWS.static
