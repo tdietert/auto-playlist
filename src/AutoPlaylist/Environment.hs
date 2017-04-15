@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass    #-}
 
 module AutoPlaylist.Environment where
 
@@ -8,7 +8,7 @@ import qualified Control.Monad.STM            as STM
 import qualified Control.Concurrent.STM.TVar  as TV
 import           Control.Monad.Except         (runExceptT)
 
-import           Data.Aeson                   
+import           Data.Aeson
 import           Data.Aeson.Types             (defaultOptions, Options(..))
 import qualified Data.ByteString.Lazy.Char8   as BSL
 import           Data.Map
@@ -24,10 +24,10 @@ import           Spotify.Auth.User
 import           System.Directory             (doesFileExist)
 
 data Config = Config
-  { redirectUri  :: RedirectURI 
-  , redirectFile  :: T.Text
-  , credentials   :: Credentials 
-  } deriving (Show, Generic, FromJSON)
+  { spotifyRedirectUri :: RedirectURI
+  , redirectFile       :: T.Text
+  , spotifyCredentials :: Credentials
+  } deriving (Generic, Show, FromJSON)
 
 readConfig :: FilePath -> IO (Maybe Config)
 readConfig fp = do
@@ -35,17 +35,18 @@ readConfig fp = do
     eConf <- parseConfig isFile
     case eConf of
       Left err -> putStrLn err >> return Nothing
-      Right conf -> return $ Just conf  
+      Right conf -> return $ Just conf
   where
     parseConfig :: Bool -> IO (Either String Config)
-    parseConfig False = return $ Left $ "Config file " ++ fp ++ " does not exist." 
-    parseConfig True  = return . eitherDecode' . BSL.pack =<< readFile fp 
+    parseConfig False = return $ Left $ "Config file " ++ fp ++ " does not exist."
+    parseConfig True  = return . eitherDecode' . BSL.pack =<< readFile fp
 
 data Environment = Environment 
   { config           :: Config 
   , clientAuthToken  :: TV.TVar ClientAuthResp
   , userAuthTokens   :: TV.TVar (Map T.Text UserAuthResp) 
   , spotifyApiClient :: SpotifyClient
+  , spotifyAuthClient :: SpotifyAuthClient
   , spotifyApiEnv    :: SpotifyApiEnv 
   , spotifyAuthEnv   :: SpotifyUserAuthEnv 
   }
@@ -57,10 +58,13 @@ initEnvironment configFp = do
   case mConfig of
     Nothing -> return $ Left "Could not parse config file." 
     Just config -> do
+      
       userAuthToksTV <- STM.atomically $ TV.newTVar empty
       spotifyClientAuthEnv <- mkSpotifyClientAuthEnv
-      let clientAuthClient' = clientAuthClient $ credentials config  
-      eAuthTokResp <- runSpotifyClientAuthClientM clientAuthClient' spotifyClientAuthEnv 
+      let spotifyAuthClient@(SpotifyAuthClient clientAuthEndpoint _ _) = mkSpotifyAuthClient
+     
+      eAuthTokResp <- flip runSpotifyClientAuthClientM spotifyClientAuthEnv $ clientAuthEndpoint
+        (Just $ mkAuthHeaderFromCredsClient $ spotifyCredentials config) basicClientAuthReq 
       case eAuthTokResp of
         Left err -> return $ Left $ T.pack $ show err
         Right authTokResp -> do
@@ -68,13 +72,12 @@ initEnvironment configFp = do
           spotifyApiEnv <- mkSpotifyApiEnv
           spotifyUserAuthEnv <- mkSpotifyUserAuthEnv
           return $ Right $ Environment 
-            { config           = config
-            , clientAuthToken  = clientAuthTokTV
-            , userAuthTokens   = userAuthToksTV
-            , spotifyApiClient = mkSpotifyAPIClient  
-            , spotifyApiEnv    = spotifyApiEnv
-            , spotifyAuthEnv   = spotifyUserAuthEnv
+            { config            = config
+            , clientAuthToken   = clientAuthTokTV
+            , userAuthTokens    = userAuthToksTV
+            , spotifyApiClient  = mkSpotifyAPIClient  
+            , spotifyAuthClient = spotifyAuthClient 
+            , spotifyApiEnv     = spotifyApiEnv
+            , spotifyAuthEnv    = spotifyUserAuthEnv
             } 
-
-
 

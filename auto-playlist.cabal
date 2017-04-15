@@ -29,6 +29,7 @@ library
                      , base64-bytestring
                      , bytestring
                      , containers
+                     , unordered-containers
                      , directory
                      , filepath
                      , http-client

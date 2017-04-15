@@ -7,11 +7,12 @@ backend:
 	stack install -j4
 
 frontend:
-	cd frontend && stack build -j4
+	cd frontend && stack build -j4 
+	mkdir -p public/appjs
 	cd frontend && cp -R `stack path --dist-dir`/build/auto-playlist-app/auto-playlist-app.jsexe/* ../public/appjs
 
 frontend-open: frontend
-	cd frontend && google-chrome http://localhost:3000/
+	cd ./frontend && google-chrome http://localhost:3000/
 
 setup: backend-setup frontend-setup
 

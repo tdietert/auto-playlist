@@ -2,3 +2,8 @@
   width: 66%;
   margin: 0 auto;
 }
+
+#login-button {
+  vertical-align: middle;
+}
+

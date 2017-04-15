@@ -18,16 +18,18 @@ import           Network.HTTP.Client      hiding (Proxy)
 import           Network.HTTP.Client.TLS  (tlsManagerSettings)
 
 import           Servant.API
-import           Servant.Client         
+import           Servant.Client
 
 import qualified Spotify.Types.PagingObject as PO
 import qualified Spotify.Types.Playlist     as PL
-import qualified Spotify.Types.Track        as T 
-import qualified Spotify.Types.User         as U 
-import qualified Spotify.Auth.User      as UA
+import qualified Spotify.Types.Track        as T
+import qualified Spotify.Types.User         as U
+import qualified Spotify.Auth.User          as UA
+import qualified Spotify.Auth.Client        as CA
 
-spotifyBaseUrl :: BaseUrl
+spotifyBaseUrl, spotifyAuthURL :: BaseUrl
 spotifyBaseUrl = BaseUrl Https "api.spotify.com" 443 ""
+spotifyAuthURL = BaseUrl Https "accounts.spotify.com" 443 ""
 
 newtype SpotifyApiEnv = SpotifyApiEnv 
   { getSpotifyApiEnv :: ClientEnv } 
@@ -41,50 +43,102 @@ runSpotifyApiClientM :: ClientM a -> SpotifyApiEnv -> IO (Either ServantError a)
 runSpotifyApiClientM clientM = runClientM clientM . getSpotifyApiEnv 
 
 -- Note:
---   data ItemTypes = TrackItems | ArtistItems 
---   w/ custom to/fromJSON 
+--   data ItemTypes = TrackItems | ArtistItems
+--   w/ custom to/fromJSON
 data TrackResponse = TrackResponse
   { tracks :: PO.PagingObject T.Track } deriving (Generic,Show)
 
 instance FromJSON TrackResponse
 instance ToJSON TrackResponse
 
-type SpotifyAPI = "v1" :>  
+type SpotifyAPI = "v1" :>
   (    Header "Authorization" T.Text :> SpotifySearchAPI
   :<|> Header "Authorization" UA.UserAccessToken :> SpotifyUserAPI
   )
 
-data SpotifyClient = SpotifyClient 
-  { mkSearchAPI :: Maybe T.Text -> SearchClient 
-  , mkUserAPI :: Maybe UA.UserAccessToken -> UserClient 
-  } 
+data SpotifyClient = SpotifyClient
+  { mkSearchAPI :: Maybe T.Text -> SearchClient
+  , mkUserAPI :: Maybe UA.UserAccessToken -> UserClient
+  }
 
-type SpotifySearchAPI = "search" :> 
-  QueryParam "q" T.Text :> 
-  QueryParam "type" T.Text :>
-  QueryParam "market" T.Text :>
-  QueryParam "limit" Int :> 
-  QueryParam "offset" Int :> Get '[JSON] TrackResponse 
+spotifyAuthAPI :: Proxy SpotifyAuthAPI
+spotifyAuthAPI = Proxy
+
+type ClientAuthEndpoint =
+       "api" :> "token"
+       :> Header "Authorization" T.Text
+       :> ReqBody '[FormUrlEncoded] CA.ClientAuthReq
+       :> Post '[JSON] CA.ClientAuthResp
+
+clientAuthEndpoint :: Proxy UserAuthEndpoint
+clientAuthEndpoint = Proxy
+
+type UserAuthEndpoint =
+       "authorize"
+       :> QueryParam "client_id" T.Text
+       :> QueryParam "response_type" T.Text
+       :> QueryParam "redirect_uri" T.Text
+       :> QueryParam "state" T.Text
+       :> QueryParam "scope" T.Text
+       :> QueryParam "show_dialog" T.Text
+       :> Get '[JSON] NoContent
+
+userAuthEndpoint :: Proxy UserAuthEndpoint
+userAuthEndpoint = Proxy
+
+type SpotifyAuthAPI =
+       ClientAuthEndpoint
+  :<|> UserAuthEndpoint
+  :<|> "api" :> "token"
+       :> Header "Authorization" T.Text
+       :> ReqBody '[FormUrlEncoded] UA.UserAuthReq
+       :> Post '[JSON] UA.UserAuthResp
+
+data SpotifyAuthClient = SpotifyAuthClient
+  { authClient :: Maybe T.Text
+               -> CA.ClientAuthReq
+               -> ClientM CA.ClientAuthResp
+
+  , authUser   :: Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> Maybe T.Text
+               -> ClientM NoContent
+
+  , token      :: Maybe T.Text
+               -> UA.UserAuthReq
+               -> ClientM UA.UserAuthResp
+  }
+
+type SpotifySearchAPI = "search"
+  :> QueryParam "q" T.Text
+  :> QueryParam "type" T.Text
+  :> QueryParam "market" T.Text
+  :> QueryParam "limit" Int
+  :> QueryParam "offset" Int
+  :> Get '[JSON] TrackResponse
 
 data SearchClient = SearchClient
   { searchTracks :: Maybe T.Text
-                 -> Maybe T.Text 
-                 -> Maybe T.Text 
-                 -> Maybe Int 
+                 -> Maybe T.Text
+                 -> Maybe T.Text
+                 -> Maybe Int
                  -> Maybe Int
                  -> ClientM TrackResponse
   } 
 
 newtype UserID = UserID T.Text
-type SpotifyUserAPI = 
+type SpotifyUserAPI =
        "me" :> Get '[JSON] U.User
   :<|> "users" :>
-       Capture "user_id" T.Text :> 
+       Capture "user_id" T.Text :>
        "playlists" :>
-       ReqBody '[JSON] PL.CreatePlaylist :> 
+       ReqBody '[JSON] PL.CreatePlaylist :>
        Post '[JSON] PL.Playlist
   :<|> "users" :>
-       Capture "user_id" T.Text :> 
+       Capture "user_id" T.Text :>
        "playlists" :>
        Capture "playlist_id" T.Text :>
        "tracks" :>
@@ -93,17 +147,17 @@ type SpotifyUserAPI =
 
 data UserClient = UserClient
   { me :: ClientM U.User
-  , createPlaylist :: T.Text 
-                   -> PL.CreatePlaylist 
-                   -> ClientM PL.Playlist 
-  , addTracksToPlaylist :: T.Text
-                        -> T.Text
-                        -> Maybe T.Text
-                        -> ClientM Object
+  , createPlaylist :: T.Text -> PL.CreatePlaylist -> ClientM PL.Playlist 
+  , addTracksToPlaylist :: T.Text -> T.Text -> Maybe T.Text -> ClientM Object
   }
 
-spotifyAPI :: Proxy SpotifyAPI 
+spotifyAPI :: Proxy SpotifyAPI
 spotifyAPI = Proxy
+
+mkSpotifyAuthClient :: SpotifyAuthClient
+mkSpotifyAuthClient = SpotifyAuthClient{..}
+  where
+    (authClient :<|> authUser :<|> token) = client spotifyAuthAPI
 
 mkSpotifyAPIClient :: SpotifyClient
 mkSpotifyAPIClient = SpotifyClient{..}
@@ -113,10 +167,10 @@ mkSpotifyAPIClient = SpotifyClient{..}
     mkSearchAPI :: Maybe T.Text -> SearchClient
     mkSearchAPI authHeader = SearchClient{..}
       where
-        searchTracks = searchAPI authHeader 
-    
+        searchTracks = searchAPI authHeader
+
     mkUserAPI :: Maybe UA.UserAccessToken -> UserClient
-    mkUserAPI uaTok = UserClient{..} 
-      where 
+    mkUserAPI uaTok = UserClient{..}
+      where
         (me :<|> createPlaylist :<|> addTracksToPlaylist) = userAPI uaTok
 
