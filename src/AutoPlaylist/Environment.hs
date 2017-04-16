@@ -20,6 +20,7 @@ import           GHC.Generics (Generic)
 import           Spotify.Api
 import           Spotify.Auth.Client
 import           Spotify.Auth.User
+import           Spotify.Types.Auth
 
 import           System.Directory             (doesFileExist)
 

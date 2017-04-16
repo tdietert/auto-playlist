@@ -1,4 +1,4 @@
-name:                auto-playlist-app 
+name:                frontend
 version:             0.1.0.0
 synopsis:            Initial project template from stack
 description:         Please see README.md
@@ -16,12 +16,13 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src, ../src
   exposed-modules:     App
-                     , AutoPlaylist.Api
+  other-modules:       Spotify.Types.Auth
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , base64-bytestring
                      , bytestring
                      , containers
+                     , unordered-containers
                      , directory
                      , filepath
                      , http-client
@@ -49,7 +50,7 @@ executable auto-playlist-app
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       auto-playlist-app
+  build-depends:       frontend
   default-language:    Haskell2010
 
 test-suite auto-playlist-app-test
@@ -57,6 +58,6 @@ test-suite auto-playlist-app-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , auto-playlist-app 
+                     , frontend
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010

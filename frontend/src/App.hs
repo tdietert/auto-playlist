@@ -24,8 +24,7 @@ import           Reflex
 import           Reflex.PerformEvent.Class (performEvent_)
 import           Reflex.Dom
 
-import           AutoPlaylist.Api
-import           Spotify.Auth.User               as UA
+import           Spotify.Types.Auth              as A
 import           Spotify.Types.User              as U
 import           Spotify.Types.Track             as ST
 
@@ -47,11 +46,11 @@ main =  mainWidget $ void $ do
 
 -- | Views
 ---------------
-mainView :: forall t m. (DomBuilder t m, MonadWidget t m) => Maybe UA.LoggedIn -> m ()
+mainView :: forall t m. (DomBuilder t m, MonadWidget t m) => Maybe A.LoggedIn -> m ()
 mainView status = case status of
   Nothing -> notLoggedInView
-  Just UA.NotLoggedIn -> notLoggedInView
-  Just (UA.LoggedIn mUser) -> loggedInView mUser
+  Just A.NotLoggedIn -> notLoggedInView
+  Just (A.LoggedIn mUser) -> loggedInView mUser
 
 notLoggedInView :: forall t m. (DomBuilder t m, MonadWidget t m) => m ()
 notLoggedInView = do

@@ -24,6 +24,7 @@ library
                        Spotify.Types.Track
                        Spotify.Types.PagingObject
                        Spotify.Types.User
+                       Spotify.Types.Auth
   build-depends:       base >= 4.7 && < 5
                      , aeson 
                      , base64-bytestring

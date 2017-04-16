@@ -33,8 +33,8 @@ import           Servant.Client                  (ClientM, ServantError, showBas
 import           Servant.API.Alternative         ((:<|>)(..))
 
 import           Spotify.Api                     as Spot
-import           Spotify.Auth.User               as UA
-import           Spotify.Auth.Client             as CA
+import qualified Spotify.Auth.User               as UA
+import           Spotify.Types.Auth              as A
 import           Spotify.Types.Playlist          as PL
 import           Spotify.Types.Track             as ST
 import           Spotify.Types.User              as U
@@ -92,19 +92,19 @@ app = do
     liftIO $ putStrLn "Checking if user is logged in..."
     mCode <- cookie "code"
     case mCode of
-      Nothing -> json UA.NotLoggedIn
+      Nothing -> json A.NotLoggedIn
       Just code -> do
         userAuthToksTV <- userAuthTokens <$> getState
         mUserAuthTok <- liftIO $ Map.lookup code <$>
           TV.readTVarIO userAuthToksTV
         case mUserAuthTok of
-          Nothing -> json UA.NotLoggedIn
+          Nothing -> json A.NotLoggedIn
           Just _ -> do
             eUserPriv <- withUserClient $ \(UserClient me _ _) ->
               first (T.pack . show) <$> spotifyApiCall me
             case eUserPriv of
-              Left err -> json $ UA.LoggedIn Nothing
-              Right user -> json $ UA.LoggedIn $ Just user
+              Left err -> json $ A.LoggedIn Nothing
+              Right user -> json $ A.LoggedIn $ Just user
 
   -- | NOTE (TODO)
   -- |   refresh token could have expired, so need to request new one
@@ -184,7 +184,7 @@ withUserAccessToken f = do
     Just code -> do
       userAuthToksTV <- userAuthTokens <$> getState
       mUserAuthTok <- liftIO $ Map.lookup code <$> TV.readTVarIO userAuthToksTV
-      let mUatok = UA.uaresp_access_token <$> mUserAuthTok 
+      let mUatok = A.uaresp_access_token <$> mUserAuthTok 
       case mUatok of 
         Nothing -> return $ Left $ "User with code: " <> code <> " does not exist." 
         Just uatok -> f uatok -- case match on token expiration here 
@@ -195,7 +195,7 @@ withClientAuthTok :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                -> ActionCtxT ctx m b
 withClientAuthTok f = do
   clientAuthTokTV <- clientAuthToken <$> getState
-  clientAuthTok <- liftIO $ CA.access_token <$> TV.readTVarIO clientAuthTokTV
+  clientAuthTok <- liftIO $ A.access_token <$> TV.readTVarIO clientAuthTokTV
   f clientAuthTok
 
 withUserClient :: (MonadIO m, HasSpock (ActionCtxT ctx m),
@@ -226,5 +226,5 @@ spotifyAuthCall :: (MonadIO m, HasSpock (ActionCtxT ctx m),
                 => ClientM b -> ActionCtxT ctx m (Either ServantError b)
 spotifyAuthCall authCall = do
   spotifyAuthEnv' <- spotifyAuthEnv <$> getState
-  liftIO $ runSpotifyUserAuthClientM authCall spotifyAuthEnv' 
+  liftIO $ UA.runSpotifyUserAuthClientM authCall spotifyAuthEnv' 
 
