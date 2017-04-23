@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
@@ -30,14 +31,15 @@ import           Servant.Common.Req       hiding (responseBody)
 
 import           Spotify.Types.Auth
 
+import           Web.HttpApiData          (toQueryParam)
 import           Web.FormUrlEncoded       (ToForm(..), Form(..))
 
 -- Orphan because GHCJS :(
 instance ToForm ClientAuthReq where
-  toForm (ClientAuthReq gt) = Form $ fromList [("grant_type", [gt])]
+  toForm (ClientAuthReq gt) = [("grant_type", toQueryParam gt)]
 
 clientAuthBaseUrl :: BaseUrl
-clientAuthBaseUrl = BaseUrl Https "accounts.spotify.com" 443 "/api/token"
+clientAuthBaseUrl = BaseUrl Https "accounts.spotify.com" 443 ""
 
 newtype SpotifyClientAuthEnv = SpotifyClientAuthEnv 
   { getSpotifyClientAuthEnv :: ClientEnv } 

@@ -22,12 +22,10 @@ import           Web.HttpApiData
 -- Server Client Auth
 -----------------------
 
-newtype ClientId = ClientId 
-  { getClientId :: T.Text }
+newtype ClientId = ClientId T.Text
   deriving (Show, Generic, ToJSON, FromJSON)
 
-newtype ClientSecret = ClientSecret 
-  { getClientSecret :: T.Text } 
+newtype ClientSecret = ClientSecret T.Text
   deriving (Show, Generic, ToJSON, FromJSON)
 
 data Credentials = Credentials
@@ -47,9 +45,9 @@ mkAuthHeaderFromCredsClient (Credentials (ClientId cid) (ClientSecret csec) ) = 
   T.decodeUtf8 . BS64.encode . T.encodeUtf8 $ cid <> ":" <> csec
 
 data ClientAuthResp = ClientAuthResp
-  { access_token :: T.Text
-  , token_type :: T.Text
-  , expires_in :: Int
+  { access_token  :: T.Text
+  , token_type    :: T.Text
+  , expires_in    :: Int
   } deriving (Show, Generic, ToJSON, FromJSON)
 
 -----------------------
@@ -59,8 +57,7 @@ data ClientAuthResp = ClientAuthResp
 data LoggedIn = LoggedIn (Maybe U.User) | NotLoggedIn
   deriving (Generic, ToJSON, FromJSON)
 
-newtype RedirectURI = RedirectURI 
-  { getRedirectURI :: T.Text }
+newtype RedirectURI = RedirectURI T.Text
   deriving (Generic, Show, ToJSON, FromJSON)
 
 newtype Code = Code T.Text
